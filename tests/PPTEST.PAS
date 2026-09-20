@@ -226,7 +226,7 @@ begin
   ShellMode:=not (AutoTest or Dump or MouseTest or NoMouseTest or LegacyDemo or MouseDemo);
   Probe:=ParamStr(1)='/PROBE'; InitialHeap:=MemAvail;
   PreviousExit:=ExitProc; ExitProc:=@CleanExit;
-  WriteLn('PP16 M7 - real-mode 8086 / small model');
+  WriteLn('PP16 M8 - real-mode 8086 / small model');
   if not ReserveVideoMemory then begin WriteLn('REFUSED: ',VideoMemoryError); Halt(2) end;
   WriteLn('Video page physical 98000..9FFFF; DOS arena end paragraph=',ArenaEnd);
   WriteLn('Owned DOS block segment=',ReservedSegment,' (0=pre-reserved)');
@@ -301,7 +301,7 @@ begin
   else if ParamStr(1)='/FILEUI' then WriteLn('M6 UI CHECKS PASSED')
   else if PerfTest then WriteLn('UI PERF CHECKS PASSED')
   else if UndoTest then WriteLn('M5 CHECKS PASSED')
-  else if DrawingTest then WriteLn('M7 CHECKS PASSED')
+  else if DrawingTest then WriteLn('M8 CHECKS PASSED')
   else if UITest then WriteLn('M3 CHECKS PASSED')
   else if ShellMode then WriteLn('PP16 VIEW SESSION ENDED')
   else if NoMouseTest then WriteLn('MISSING DRIVER CHECK PASSED')

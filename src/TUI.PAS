@@ -909,6 +909,10 @@ begin
   if (OpenMenu<0) and ScreenToDoc(S.X,S.Y,DX,DY) then
   begin
     if (S.Pressed and 2)<>0 then Gesture:=2
+    else if SelectedTool=2 then
+    begin
+      DocFloodFill(DX,DY,ForeColor);
+    end
     else if SelectedTool in [3,4] then
     begin
       Gesture:=1; DocBeginAction;
@@ -923,7 +927,7 @@ begin
     else
     begin
       FillBox(0,192,319,199,1);
-      SmallText(3,194,'CUT, UTILITIES AND BUCKET FILL ARE PREVIEWS',14);
+      SmallText(3,194,'CUT AND UTILITIES ARE PREVIEWS',14);
     end;
     StrokeValid:=False;
     if Gesture<>0 then ApplyGesture(S.X,S.Y)
@@ -1123,6 +1127,21 @@ begin
   Check(not DocSetPixel(-1,0,15),'reject negative pixel');
   Check(not DocSetPixel(64,63,15),'reject out-of-range pixel');
   Check(not DocDirty,'rejected writes stay clean');
+  ResetTest;
+  for Y:=0 to 63 do DocSetPixel(32,Y,2);
+  DocSaved; SelectedTool:=2; ForeColor:=5;
+  AtDoc(2,2,1); AtDoc(2,2,0);
+  Check((DocPixel(2,2)=5) and (DocPixel(31,63)=5) and
+        (DocPixel(32,20)=2) and (DocPixel(33,20)=0) and DocCanUndo,
+        'bucket fill respects a barrier and creates one undo');
+  DocUndo;
+  Check((DocPixel(2,2)=0) and (DocPixel(32,20)=2) and not DocDirty,
+        'bucket fill undo restores pixels and clean state');
+  ResetTest; SelectedTool:=2; ForeColor:=12;
+  AtDoc(0,0,1); AtDoc(0,0,0);
+  for Y:=0 to 63 do for X:=0 to 63 do
+    Check(DocPixel(X,Y)=12,'bucket fill reaches full document');
+  DocUndo; Check(not DocDirty and (DocChecksum=0),'full bucket fill undo');
   for I:=0 to 15 do
   begin
     DocSetPixel(2,0,I); DocSetPixel(3,0,15-I);

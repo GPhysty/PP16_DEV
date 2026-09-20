@@ -12,7 +12,7 @@ TARGET
 PROJECT STATE
 - Read README.md first.
 - Read docs/MILESTONES.md before beginning substantial work.
-- Current completed milestone: M6.
+- Current completed milestone: M8.
 - Do not redesign completed milestones unless explicitly instructed.
 
 IMPLEMENTATION

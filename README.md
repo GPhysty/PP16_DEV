@@ -1,9 +1,9 @@
 # PP16 â€” Tandy 1000 HX editor project
 
-Current build: **M7 with native Save/Open and basic shape tools**, retaining the
-PIXELplus-style layout and the accepted faster canvas/pointer baseline. The
-64x64 packed image is editable with one-level undo and can be saved as a native
-`.P16` file.
+Current build: **M8 with native Save/Open, basic shape tools and bucket fill**,
+retaining the PIXELplus-style layout and the accepted faster canvas/pointer
+baseline. The 64x64 packed image is editable with one-level undo and can be
+saved as a native `.P16` file.
 The current M6 build includes the save/restart fix for DOSBox profiles with
 long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 
@@ -13,6 +13,9 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   the foreground color. Circle starts at its centre; Square starts at its first
   corner. Their live canvas outline previews the result before release. Each
   completed shape is one undoable action; Escape cancels it.
+- **Bucket Fill** (top row, third icon): left-click a connected area to replace
+  it with the foreground color. It is four-connected, respects color borders,
+  and is one undoable action.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
@@ -88,7 +91,8 @@ comparison against full redraws.
 The [canvas and pointer checkpoint](docs/UI-RESPONSE.md) covers packed canvas
 redraws, coordinate updates and faster navigation. `-ResponseOnly -Cycles 750`
 runs its focused checks and pointer benchmark; these checks also run in the full suite.
-See [M6 behavior and validation](docs/M6-FILES.md), [M7 shapes](docs/M7-SHAPES.md) and the
+See [M6 behavior and validation](docs/M6-FILES.md), [M7 shapes](docs/M7-SHAPES.md),
+[M8 fill and clipboard design](docs/M8-FILL-CLIPBOARD-DESIGN.md) and the
 [native format specification](docs/P16-FORMAT.md). Legacy `.PUT` import and
 variable-size editing remain separate milestones.
 

@@ -19,6 +19,7 @@ function DocSetPixel(X,Y:Integer; C:Byte):Boolean;
 procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
 procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
 procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
 function DocPixel(X,Y:Integer):Byte;
 function DocChecksum:DWord;
@@ -27,6 +28,11 @@ var Pixels:array[0..DocBytes-1] of Byte;
     UndoPixels,PendingPixels:array[0..DocBytes-1] of Byte;
     UndoValid,UndoDirty,ActionActive,ActionChanged,PendingDirty:Boolean;
     DirtyFirst,DirtyLast:array[0..63] of Integer;
+    {A 12-bit packed stack holds every possible document coordinate using
+     6,144 bytes, rather than 8,192 bytes for 4,096 Words. Pixels are changed
+     when queued, so no coordinate can be queued more than once.}
+    FillStack:array[0..6143] of Byte;
+    FillCount:Word;
 
 procedure ResetDirty;
 var Y:Integer;
@@ -212,6 +218,60 @@ begin
     if D<0 then D:=D+2*Y+1
     else begin Dec(X); D:=D+2*(Y-X)+1 end;
   end;
+end;
+
+procedure FillPush(P:Word);
+var O:Word;
+begin
+  O:=(FillCount shr 1)*3;
+  if Odd(FillCount) then
+  begin
+    FillStack[O+1]:=(FillStack[O+1] and $0F) or Byte((P and $0F) shl 4);
+    FillStack[O+2]:=P shr 4;
+  end else
+  begin
+    FillStack[O]:=P and $FF;
+    FillStack[O+1]:=(FillStack[O+1] and $F0) or Byte(P shr 8);
+  end;
+  Inc(FillCount);
+end;
+
+function FillPop:Word;
+var O:Word;
+begin
+  Dec(FillCount); O:=(FillCount shr 1)*3;
+  if Odd(FillCount) then FillPop:=(Word(FillStack[O+2]) shl 4) or
+                                      (FillStack[O+1] shr 4)
+  else FillPop:=Word(FillStack[O]) or (Word(FillStack[O+1] and $0F) shl 8);
+end;
+
+function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
+var Old:Byte; P:Word; WasActive:Boolean;
+
+  procedure Add(NX,NY:Integer);
+  begin
+    if (NX<0) or (NX>=64) or (NY<0) or (NY>=64) then Exit;
+    if DocPixel(NX,NY)<>Old then Exit;
+    DocSetPixel(NX,NY,C);
+    {At most all 4,096 pixels are queued, which exactly fits the stack.}
+    FillPush(Word(NY)*64+NX);
+  end;
+
+begin
+  DocFloodFill:=False;
+  if (X<0) or (X>=64) or (Y<0) or (Y>=64) then Exit;
+  C:=C and 15; Old:=DocPixel(X,Y);
+  if Old=C then Exit;
+  WasActive:=ActionActive;
+  if not WasActive then DocBeginAction;
+  FillCount:=0; Add(X,Y);
+  while FillCount<>0 do
+  begin
+    P:=FillPop; X:=P and 63; Y:=P shr 6;
+    Add(X-1,Y); Add(X+1,Y); Add(X,Y-1); Add(X,Y+1);
+  end;
+  if not WasActive then DocCommitAction;
+  DocFloodFill:=True;
 end;
 
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;

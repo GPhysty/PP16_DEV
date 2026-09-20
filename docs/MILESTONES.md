@@ -209,3 +209,25 @@ The M1-M7 suite passed again at 3,000 cycles/ms in
 `obj/pp16-20260920-162338-3809ee`; its focused shape checks include live-preview
 visibility and Escape cleanup. The corrected production EXE is 68,056 bytes
 (59,478 code and 8,470 initialized-data bytes).
+
+## M8 - bucket fill and clipboard design
+
+Bucket Fill is now active. A left click replaces its four-connected source-color
+region with the foreground color, preserving color borders and right-click
+sampling. Each changed fill is one undoable action; a same-color click preserves
+the prior undo. The implementation uses a bounded 6,144-byte packed-coordinate
+stack and needs no EMS/XMS.
+
+M8 also records the agreed selection/clipboard contract: a bounded 64 by 64
+packed clipboard, rectangle metadata, opaque clipped paste, UI-only selection
+and paste overlays, Copy without undo, and Cut/Paste as one undoable action.
+Cut, Copy and Paste themselves remain a later dedicated implementation
+milestone.
+
+The full M1-M8 suite passed at 3,000 cycles/ms in
+`obj/pp16-20260920-165632-5fa365`, including 4,096-pixel fill and undo checks,
+file recovery, memory-chain comparisons and independent file verification. The
+production EXE is 69,290 bytes (60,730 code and 8,456 initialized-data bytes),
+with 9,950 bytes of initial near heap. See
+[M8 behavior and clipboard design](M8-FILL-CLIPBOARD-DESIGN.md). Next: a
+dedicated selection, Cut, Copy and Paste implementation milestone.

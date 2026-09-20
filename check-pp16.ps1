@@ -58,7 +58,7 @@ MEMINFO > AFTER.TXT
 '@
     Run-Profile 'nomouse' "[dos]`nint33=false" 'PPTVIDEO /NTEST > NOMOUSE.TXT'
     Run-Profile 'wrongvid' "[dosbox]`nmachine=svga_s3" 'PP16 /PROBE > WRONGVID.TXT'
-        $checks = @(@('PIXELS.TXT','M1 CHECKS PASSED'), @('MOUSE.TXT','M2 CHECKS PASSED'), @('VIEW.TXT','M3 CHECKS PASSED'), @('DRAW.TXT','M7 CHECKS PASSED'), @('UNDO.TXT','M5 CHECKS PASSED'), @('RESPONSE.TXT','UI PERF CHECKS PASSED'), @('FILEUI.TXT','M6 UI CHECKS PASSED'), @('DUMP.TXT','M1 CHECKS PASSED'), @('NOMOUSE.TXT','MISSING DRIVER CHECK PASSED'), @('WRONGVID.TXT','REFUSED: Unsupported machine'))
+        $checks = @(@('PIXELS.TXT','M1 CHECKS PASSED'), @('MOUSE.TXT','M2 CHECKS PASSED'), @('VIEW.TXT','M3 CHECKS PASSED'), @('DRAW.TXT','M8 CHECKS PASSED'), @('UNDO.TXT','M5 CHECKS PASSED'), @('RESPONSE.TXT','UI PERF CHECKS PASSED'), @('FILEUI.TXT','M6 UI CHECKS PASSED'), @('DUMP.TXT','M1 CHECKS PASSED'), @('NOMOUSE.TXT','MISSING DRIVER CHECK PASSED'), @('WRONGVID.TXT','REFUSED: Unsupported machine'))
     }
     if ($FileOnly -or -not ($UndoOnly -or $PerfOnly -or $ResponseOnly)) {
         & python -X utf8 tests/filefixtures.py $runDir

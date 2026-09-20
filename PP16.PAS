@@ -12,7 +12,7 @@ end;
 begin
   WriteErrorsToStdErr:=False;
   PreviousExit:=ExitProc; ExitProc:=@CleanExit;
-  WriteLn('PP16 M7 - real-mode 8086 / small model');
+  WriteLn('PP16 M8 - real-mode 8086 / small model');
   WriteLn('Initial near heap bytes=',MemAvail);
   if not ReserveVideoMemory then begin WriteLn('REFUSED: ',VideoMemoryError); Halt(2) end;
   if ParamStr(1)='/PROBE' then begin WriteLn('MEMORY CHECK PASSED'); Halt(0) end;
