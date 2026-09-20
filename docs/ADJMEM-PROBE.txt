@@ -1,0 +1,42 @@
+BDA available KB=624 installed KB=640
+ROM signatures=255,33
+MCB seg=537 type=77 owner=8 size=1254 end=1792
+MCB seg=1792 type=77 owner=1839 size=45 end=1838
+MCB seg=1838 type=77 owner=1839 size=154 end=1993
+MCB seg=1993 type=77 owner=2066 size=71 end=2065
+MCB seg=2065 type=77 owner=2066 size=5064 end=7130
+MCB seg=7130 type=90 owner=0 size=32805 end=39936
+
+
+ADJMEM 1.1  Copyright 1989-2005 (C) by Joseph A. Albrecht
+
+
+Installed Memory: 640K
+
+Protected Memory: 32K
+
+BDA available KB=608 installed KB=640
+ROM signatures=255,33
+MCB seg=537 type=77 owner=8 size=1254 end=1792
+MCB seg=1792 type=77 owner=1839 size=45 end=1838
+MCB seg=1838 type=77 owner=1839 size=154 end=1993
+MCB seg=1993 type=77 owner=2066 size=71 end=2065
+MCB seg=2065 type=77 owner=2066 size=5064 end=7130
+MCB seg=7130 type=90 owner=0 size=31781 end=38912
+
+
+ADJMEM 1.1  Copyright 1989-2005 (C) by Joseph A. Albrecht
+
+
+Installed Memory: 640K
+
+Protected Memory: 16K
+
+BDA available KB=624 installed KB=640
+ROM signatures=255,33
+MCB seg=537 type=77 owner=8 size=1254 end=1792
+MCB seg=1792 type=77 owner=1839 size=45 end=1838
+MCB seg=1838 type=77 owner=1839 size=154 end=1993
+MCB seg=1993 type=77 owner=2066 size=71 end=2065
+MCB seg=2065 type=77 owner=2066 size=5064 end=7130
+MCB seg=7130 type=90 owner=0 size=32805 end=39936

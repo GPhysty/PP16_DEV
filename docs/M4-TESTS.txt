@@ -1,0 +1,8 @@
+PP16 M4 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=42606
+16-point stroke BIOS ticks=1
+Stroke repainted document cells=46
+Pass 1: cumulative failures=0
+M4 CHECKS PASSED

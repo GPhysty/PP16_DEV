@@ -1,0 +1,5 @@
+tools/
+obj/
+out/
+trash/
+*.log

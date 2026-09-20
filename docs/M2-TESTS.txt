@@ -1,0 +1,7 @@
+PP16 M2 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=52414
+Pass 1: cumulative failures=0
+Mouse raw maximum=639,199 X scale=2
+M2 CHECKS PASSED

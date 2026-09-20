@@ -1,0 +1,25 @@
+PASS: all 10 incremental frames equal full redraws byte for byte
+PASS: all 10 frames also equal the comparison build
+BIOS ticks at 750 cycles/ms (about 55 ms each); coarse emulator measurements
+File open/close twice: 302 -> 42
+Switch six menus: 876 -> 94
+Choose utility: 151 -> 18
+Help open/close: 278 -> 16
+Cancel dirty Exit: 310 -> 48
+Change/swap colors: 18 -> 4
+Select four tools: 32 -> 6
+Zoom/pan: 281 -> 198
+Open File: 20 -> 20
+Open dirty Exit: 147 -> 16
+
+PASS: all seven M1-M5 regression frames also match the original M5 build.
+Final M1-M5 regression: obj/pp16-20260920-071334-d5f031 at 3000 cycles/ms
+M1/M2/M3/M4/M5, missing mouse, wrong video and exact DOS memory restoration passed.
+PP16 M5 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=24614
+M5: whole-action undo, cancel, clear, New/Exit protection checked
+Pass 1: cumulative failures=0
+M5 CHECKS PASSED
+

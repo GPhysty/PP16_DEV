@@ -1,0 +1,242 @@
+unit TDoc;
+{$mode tp}{$H-}{$R+}{$Q+}
+interface
+const DocWidth=64; DocHeight=64; DocBytes=2048;
+type TDocPixels=array[0..DocBytes-1] of Byte;
+var DocDirty:Boolean;
+procedure DocCopy(var Data:TDocPixels);
+procedure DocReplace(const Data:TDocPixels);
+procedure DocSaved;
+function DocCanUndo:Boolean;
+procedure DocBeginAction;
+procedure DocCommitAction;
+procedure DocCancelAction;
+procedure DocUndo;
+procedure DocClear(C:Byte);
+procedure InitDemoDoc;
+procedure InitBlankDoc(C:Byte);
+function DocSetPixel(X,Y:Integer; C:Byte):Boolean;
+procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
+function DocPixel(X,Y:Integer):Byte;
+function DocChecksum:DWord;
+implementation
+var Pixels:array[0..DocBytes-1] of Byte;
+    UndoPixels,PendingPixels:array[0..DocBytes-1] of Byte;
+    UndoValid,UndoDirty,ActionActive,ActionChanged,PendingDirty:Boolean;
+    DirtyFirst,DirtyLast:array[0..63] of Integer;
+
+procedure ResetDirty;
+var Y:Integer;
+begin
+  DocDirty:=False;
+  UndoValid:=False; ActionActive:=False; ActionChanged:=False;
+  for Y:=0 to 63 do begin DirtyFirst[Y]:=64; DirtyLast[Y]:=-1 end;
+end;
+
+procedure MarkAll;
+var Y:Integer;
+begin
+  for Y:=0 to 63 do begin DirtyFirst[Y]:=0; DirtyLast[Y]:=63 end;
+end;
+
+function DocCanUndo:Boolean;
+begin DocCanUndo:=UndoValid and not ActionActive end;
+
+procedure DocCopy(var Data:TDocPixels);
+begin Move(Pixels,Data,DocBytes) end;
+
+procedure DocReplace(const Data:TDocPixels);
+begin Move(Data,Pixels,DocBytes); ResetDirty; MarkAll end;
+
+procedure DocSaved;
+var I:Integer;
+begin
+  DocDirty:=False; UndoDirty:=False;
+  if UndoValid then for I:=0 to DocBytes-1 do
+    if Pixels[I]<>UndoPixels[I] then UndoDirty:=True;
+end;
+
+procedure DocBeginAction;
+begin
+  if ActionActive then Exit;
+  ActionActive:=True; ActionChanged:=False;
+end;
+
+procedure DocCommitAction;
+begin
+  if not ActionActive then Exit;
+  if ActionChanged then
+  begin
+    Move(PendingPixels,UndoPixels,DocBytes);
+    UndoDirty:=PendingDirty; UndoValid:=True;
+  end;
+  ActionActive:=False; ActionChanged:=False;
+end;
+
+procedure DocCancelAction;
+begin
+  if not ActionActive then Exit;
+  if ActionChanged then
+  begin
+    Move(PendingPixels,Pixels,DocBytes); DocDirty:=PendingDirty; MarkAll;
+  end;
+  ActionActive:=False; ActionChanged:=False;
+end;
+
+procedure DocUndo;
+begin
+  if not DocCanUndo then Exit;
+  Move(UndoPixels,Pixels,DocBytes); DocDirty:=UndoDirty;
+  UndoValid:=False; MarkAll;
+end;
+
+procedure DocClear(C:Byte);
+var X,Y:Integer;
+begin
+  if ActionActive then Exit;
+  DocBeginAction;
+  for Y:=0 to 63 do for X:=0 to 63 do DocSetPixel(X,Y,C);
+  DocCommitAction;
+end;
+
+procedure InitBlankDoc(C:Byte);
+begin
+  C:=C and 15; FillChar(Pixels,SizeOf(Pixels),C or (C shl 4)); ResetDirty;
+end;
+
+procedure SetPixel(X,Y:Integer; C:Byte);
+var A:Word;
+begin
+  A:=Word(Y)*32+Word(X div 2);
+  if Odd(X) then Pixels[A]:=(Pixels[A] and $F0) or C
+  else Pixels[A]:=(Pixels[A] and $0F) or (C shl 4);
+end;
+
+procedure InitDemoDoc;
+var X,Y,DX,DY,D:Integer; C:Byte;
+begin
+  {Original fixed fixture: a small sunset planet against a star field.
+   Row-major packed high-nibble-first data, independent of video RAM.}
+  FillChar(Pixels,SizeOf(Pixels),0);
+  for Y:=0 to 63 do for X:=0 to 63 do
+  begin
+    C:=0;
+    if ((X*13+Y*7) mod 113=0) then C:=7;
+    DX:=X-32; DY:=Y-31; D:=DX*DX+DY*DY;
+    if D<=256 then C:=1;
+    if D<=196 then
+    begin
+      if Y<25 then C:=14 else if Y<31 then C:=6
+      else if Y<37 then C:=12 else C:=4;
+      if (Y>=36) and (Y>43-Abs(X-28)) then C:=0;
+      if (Y>=39) and (Y<43) then C:=3;
+    end;
+    SetPixel(X,Y,C);
+  end;
+  ResetDirty;
+end;
+
+function DocSetPixel(X,Y:Integer; C:Byte):Boolean;
+begin
+  DocSetPixel:=False;
+  if (X<0) or (Y<0) or (X>=64) or (Y>=64) then Exit;
+  C:=C and 15;
+  if DocPixel(X,Y)=C then Exit;
+  {Capture lazily: a no-change gesture must not replace the previous undo.
+   A separate pending snapshot preserves that undo if the gesture cancels.}
+  if ActionActive and not ActionChanged then
+  begin
+    Move(Pixels,PendingPixels,DocBytes); PendingDirty:=DocDirty;
+    ActionChanged:=True;
+  end;
+  SetPixel(X,Y,C); DocDirty:=True;
+  if X<DirtyFirst[Y] then DirtyFirst[Y]:=X;
+  if X>DirtyLast[Y] then DirtyLast[Y]:=X;
+  DocSetPixel:=True;
+end;
+
+procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
+var DX,DY,SX,SY,E,E2:Integer;
+begin
+  {Endpoints must be document coordinates. The input layer splits strokes
+   when they leave the canvas instead of connecting through hidden pixels.}
+  if (X1<0) or (X1>63) or (X2<0) or (X2>63) or
+     (Y1<0) or (Y1>63) or (Y2<0) or (Y2>63) then Exit;
+  DX:=Abs(X2-X1); DY:=-Abs(Y2-Y1);
+  if X1<X2 then SX:=1 else SX:=-1;
+  if Y1<Y2 then SY:=1 else SY:=-1;
+  E:=DX+DY;
+  repeat
+    DocSetPixel(X1,Y1,C);
+    if (X1=X2) and (Y1=Y2) then Break;
+    E2:=2*E;
+    if E2>=DY then begin E:=E+DY; X1:=X1+SX end;
+    if E2<=DX then begin E:=E+DX; Y1:=Y1+SY end;
+  until False;
+end;
+
+procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
+var Side,SX,SY,Limit:Integer;
+begin
+  {The press point is the first corner. The drag direction chooses the
+   opposing corner; the longest drag component gives a true square.}
+  Side:=Abs(X2-X1); if Abs(Y2-Y1)>Side then Side:=Abs(Y2-Y1);
+  if X2<X1 then SX:=-1 else SX:=1;
+  if Y2<Y1 then SY:=-1 else SY:=1;
+  if SX>0 then Limit:=63-X1 else Limit:=X1;
+  if Side>Limit then Side:=Limit;
+  if SY>0 then Limit:=63-Y1 else Limit:=Y1;
+  if Side>Limit then Side:=Limit;
+  X2:=X1+SX*Side; Y2:=Y1+SY*Side;
+  DocLine(X1,Y1,X2,Y1,C); DocLine(X2,Y1,X2,Y2,C);
+  DocLine(X2,Y2,X1,Y2,C); DocLine(X1,Y2,X1,Y1,C);
+end;
+
+procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+var R,X,Y,D:Integer;
+begin
+  {The press point is the centre. A diagonal drag uses its farther axis as
+   the radius, keeping the result circular on the square-pixel canvas.}
+  R:=Abs(X2-X1); if Abs(Y2-Y1)>R then R:=Abs(Y2-Y1);
+  X:=R; Y:=0; D:=1-R;
+  while X>=Y do
+  begin
+    DocSetPixel(X1+X,Y1+Y,C); DocSetPixel(X1+Y,Y1+X,C);
+    DocSetPixel(X1-Y,Y1+X,C); DocSetPixel(X1-X,Y1+Y,C);
+    DocSetPixel(X1-X,Y1-Y,C); DocSetPixel(X1-Y,Y1-X,C);
+    DocSetPixel(X1+Y,Y1-X,C); DocSetPixel(X1+X,Y1-Y,C);
+    Inc(Y);
+    if D<0 then D:=D+2*Y+1
+    else begin Dec(X); D:=D+2*(Y-X)+1 end;
+  end;
+end;
+
+function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
+begin
+  TakeDirtyRow:=False;
+  if (Y<0) or (Y>63) then Exit;
+  X1:=DirtyFirst[Y]; X2:=DirtyLast[Y];
+  TakeDirtyRow:=X1<=X2;
+  DirtyFirst[Y]:=64; DirtyLast[Y]:=-1;
+end;
+
+function DocPixel(X,Y:Integer):Byte;
+var B:Byte;
+begin
+  DocPixel:=0;
+  if (X<0) or (Y<0) or (X>=64) or (Y>=64) then Exit;
+  B:=Pixels[Word(Y)*32+Word(X div 2)];
+  if Odd(X) then DocPixel:=B and 15 else DocPixel:=B shr 4;
+end;
+
+function DocChecksum:DWord;
+var I:Word; S:DWord;
+begin
+  S:=0;
+  for I:=0 to DocBytes-1 do S:=S+DWord(Pixels[I])*DWord(I+1);
+  DocChecksum:=S;
+end;
+end.

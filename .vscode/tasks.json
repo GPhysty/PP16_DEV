@@ -1,0 +1,110 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PP16: Build 8086 DOS",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/build-pp16.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PP16: Build and run editor",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/run-pp16.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "PP16: Build 8086 DOS",
+      "problemMatcher": []
+    },
+    {
+      "label": "PP16: Check rendering, input, drawing and undo",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/check-pp16.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "PP16: Build 8086 DOS",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tandy: Build 16-bit DOS (FPC Toolkit)",
+      "type": "fpc",
+      "file": "HXTEST.PAS",
+      "cwd": "${workspaceFolder}",
+      "buildEvent": {
+        "before_build": [
+          "cmd /c if not exist out mkdir out",
+          "cmd /c if not exist obj mkdir obj"
+        ]
+      },
+      "buildOption": {
+        "customOptions": [
+          "-n",
+          "@hx8086.cfg"
+        ]
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Tandy: Build and run in DOSBox-X",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/run.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Tandy: Build 16-bit DOS (FPC Toolkit)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tandy: Watch assistant build and test log",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "New-Item -ItemType Directory -Force '${workspaceFolder}/obj' | Out-Null; if (-not (Test-Path -LiteralPath '${workspaceFolder}/obj/monitor.log')) { New-Item -ItemType File '${workspaceFolder}/obj/monitor.log' | Out-Null }; Get-Content -LiteralPath '${workspaceFolder}/obj/monitor.log' -Tail 40 -Wait"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

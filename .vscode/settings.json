@@ -1,0 +1,14 @@
+{
+  "fpctoolkit.env.PP": "E:/Projects/PP16_DEV/tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe",
+  "fpctoolkit.env.FPCTARGET": "msdos",
+  "fpctoolkit.env.FPCTARGETCPU": "i8086",
+  "files.exclude": {
+    "tools": true,
+    "obj": true,
+    "out/DEFAULT.TXT": true,
+    "out/RESULT.TXT": true,
+    "out/HXTEST.TXT": true,
+    "out/*.map": true
+  },
+  "fpctoolkit.env.FPCDIR": "E:\\Projects\\FPC"
+}

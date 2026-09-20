@@ -1,0 +1,25 @@
+M5 full regression - 3000 cycles/ms
+Run: obj/pp16-20260919-220410-d721dc
+PP16 M5 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=37006
+M5: whole-action undo, cancel, clear, New/Exit protection checked
+Pass 1: cumulative failures=0
+M5 CHECKS PASSED
+
+M1-M4, missing mouse, wrong video and exact DOS memory restoration also passed.
+
+M5 focused regression - 750 cycles/ms
+Run: obj/pp16-20260919-221131-ab1418
+PP16 M5 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=37006
+M5: whole-action undo, cancel, clear, New/Exit protection checked
+Pass 1: cumulative failures=0
+M5 CHECKS PASSED
+
+Exact DOS memory restoration passed.
+
+Physical HX and actual DOS 3.3 validation remain pending.

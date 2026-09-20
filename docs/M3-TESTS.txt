@@ -1,0 +1,6 @@
+PP16 M3 - real-mode 8086 / small model
+Video page physical 98000..9FFFF; DOS arena end paragraph=39936
+Owned DOS block segment=38912 (0=pre-reserved)
+BIOS available KB=624; initial near heap bytes=43774
+Pass 1: cumulative failures=0
+M3 CHECKS PASSED
