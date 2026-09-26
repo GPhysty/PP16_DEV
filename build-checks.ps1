@@ -3,11 +3,13 @@ Push-Location $PSScriptRoot
 try {
     New-Item -ItemType Directory -Force -Path obj/checks,obj/filechecks | Out-Null
     $compiler = './tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe'
-    foreach ($group in @('VIDEO','VIEW','DRAW','UNDO','RESPONSE','FILEUI')) {
+    foreach ($group in @('VIDEO','VIEW','DRAW','UNDO','RESPONSE','FILEUI','CLIP')) {
         $unitDir = "obj/checks/$group"
         $exe = switch ($group) { 'RESPONSE' { 'PPTRESP' } 'FILEUI' { 'PPTFUI' } default { "PPT$group" } }
         New-Item -ItemType Directory -Force -Path $unitDir | Out-Null
-        & $compiler '-n' '@pp16.cfg' "-FU$unitDir" '-FEobj/checks' "-dPP16_${group}_TEST" "-o$exe.EXE" 'tests/PPTEST.PAS'
+        $defines = @("-dPP16_${group}_TEST")
+        if ($group -eq 'CLIP') { $defines += '-dPP16_CLIP_ENABLED' }
+        & $compiler '-n' '@pp16.cfg' "-FU$unitDir" '-FEobj/checks' $defines "-o$exe.EXE" 'tests/PPTEST.PAS'
         if ($LASTEXITCODE -ne 0) { throw "$group harness build failed" }
     }
     & $compiler '-n' '@pp16.cfg' '-FUobj/filechecks' '-FEobj/checks' '-dPP16_FILE_TEST' '-oPPTFILE.EXE' 'tests/FILETEST.PAS'

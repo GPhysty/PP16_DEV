@@ -16,11 +16,13 @@ function ResponseChecks:Word;
 procedure PerfCase(N:Integer);
 {$endif}
 {$ifdef PP16_FILEUI_TEST}function FileUIChecks:Word;{$endif}
+{$ifdef PP16_CLIP_TEST}function ClipChecks:Word;{$endif}
 procedure PointerFeedback(X,Y:Integer);
 implementation
-uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog;
+uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog
+{$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
-      ('CUT','UTILITIES','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
+      ('SELECT','UTILITIES','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
       UtilityNames:array[0..13] of String[6]=
       ('BRIGHT','DARK','TINT','FUR','MIX','SOFT','UNZAG','HOLLOW',
        'TILE','XOR','GREY','SWEEP','SWAP','EDGE');
@@ -65,9 +67,17 @@ var OpenMenu:Integer;
     CanvasFrame:array[0..127,0..64] of Byte;
     StatusValid,ShiftHeld:Boolean;
     StatusValues:array[0..3] of String[2];
+{$ifdef PP16_CLIP_ENABLED}
+    SelectionValid,PasteMode:Boolean;
+    SelectionX,SelectionY,SelectionW,SelectionH:Integer;
+    SelectionAnchorX,SelectionAnchorY,PasteX,PasteY:Integer;
+{$endif}
 
 procedure PaintChanges; forward;
 procedure StartFileDialog(Saving:Boolean); forward;
+{$ifdef PP16_CLIP_ENABLED}
+procedure PreviewShapePixel(X,Y:Integer; C:Byte); forward;
+{$endif}
 
 function Num(N:Integer):String;
 var S:String[6];
@@ -366,7 +376,14 @@ end;
 
 function Enabled(M,I:Integer):Boolean;
 begin
-  Enabled:=((M=0) and (I in [0,1,3,4,15])) or ((M=1) and (I=0) and DocCanUndo) or
+  Enabled:=((M=0) and (I in [0,1,3,4,15])) or
+{$ifdef PP16_CLIP_ENABLED}
+           ((M=1) and (((I=0) and DocCanUndo) or
+                       ((I in [2,3]) and SelectionValid) or
+                       ((I=4) and ClipboardValid))) or
+{$else}
+           ((M=1) and (I=0) and DocCanUndo) or
+{$endif}
            ((M=3) and (I in [0,1])) or ((M=2) and (I=2)) or
            ((M=5) and (I in [0,3,4,6]));
 end;
@@ -461,6 +478,74 @@ begin
   ShowCursor(X,Y);
 end;
 
+{$ifdef PP16_CLIP_ENABLED}
+procedure ClearSelection;
+begin
+  SelectionValid:=False; PasteMode:=False;
+end;
+
+procedure SetSelection(Ax,Ay,Bx,By:Integer);
+var T:Integer;
+begin
+  if Ax>Bx then begin T:=Ax; Ax:=Bx; Bx:=T end;
+  if Ay>By then begin T:=Ay; Ay:=By; By:=T end;
+  if Ax<0 then Ax:=0; if Ay<0 then Ay:=0;
+  if Bx>=DocWidth then Bx:=DocWidth-1;
+  if By>=DocHeight then By:=DocHeight-1;
+  SelectionX:=Ax; SelectionY:=Ay;
+  SelectionW:=Bx-Ax+1; SelectionH:=By-Ay+1;
+  SelectionValid:=(SelectionW>0) and (SelectionH>0);
+end;
+
+procedure SelectionBorder(X,Y,W,H:Integer; C:Byte);
+var I:Integer;
+begin
+  if (W<1) or (H<1) then Exit;
+  for I:=X to X+W-1 do
+  begin PreviewShapePixel(I,Y,C); PreviewShapePixel(I,Y+H-1,C) end;
+  for I:=Y+1 to Y+H-2 do
+  begin PreviewShapePixel(X,I,C); PreviewShapePixel(X+W-1,I,C) end;
+end;
+
+procedure ShowSelectionOverlay;
+begin
+  DrawCanvas;
+  if SelectionValid then SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14);
+  PaintedUndo:=DocCanUndo;
+end;
+
+procedure ShowPasteOverlay;
+var X,Y:Integer;
+begin
+  DrawCanvas;
+  if not ClipboardValid then Exit;
+  for Y:=0 to ClipboardHeight-1 do for X:=0 to ClipboardWidth-1 do
+    if (PasteX+X>=0) and (PasteY+Y>=0) and
+       (PasteX+X<DocWidth) and (PasteY+Y<DocHeight) then
+      PreviewShapePixel(PasteX+X,PasteY+Y,ClipboardPixel(X,Y));
+  SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,10);
+  PaintedUndo:=DocCanUndo;
+end;
+
+procedure CopySelection;
+begin
+  if SelectionValid then ClipboardCopy(SelectionX,SelectionY,SelectionW,SelectionH);
+end;
+
+procedure CutSelection;
+begin
+  if SelectionValid then ClipboardCut(SelectionX,SelectionY,SelectionW,SelectionH,BackColor);
+end;
+
+procedure BeginPaste;
+begin
+  if not ClipboardValid then Exit;
+  PasteMode:=True;
+  FillBox(0,192,319,199,1);
+  SmallText(3,194,'PASTE: DRAG TO PLACE  ESC: CANCEL',14);
+end;
+{$endif}
+
 procedure InitUI;
 begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
   StatusValid:=False; ShiftHeld:=False;
@@ -471,6 +556,7 @@ begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
   RepaintedCells:=0;
   PendingCommand:=0; ConfirmDiscard:=False; PaintedUndo:=False;
   SelectedUtility:=5; UtilityHover:=-1; UtilityDrag:=False; UtilityMoved:=False;
+  {$ifdef PP16_CLIP_ENABLED}ClearClipboard; ClearSelection;{$endif}
   ExitRequested:=False; SelectedTool:=3; OpenMenu:=-1; HoverDX:=-1; HoverDY:=-1 end;
 
 procedure Title;
@@ -556,7 +642,8 @@ begin
   C:=PendingCommand;
   ClosePopup;
   if PendingCommand=1 then
-  begin InitBlankDoc(0); CurrentFile:=''; InitView end
+  begin InitBlankDoc(0); CurrentFile:=''; InitView;
+    {$ifdef PP16_CLIP_ENABLED}ClearSelection{$endif} end
   else if PendingCommand=2 then ExitRequested:=True;
   PendingCommand:=0; OpenMenu:=-1; DrawUI;
   if C=3 then StartFileDialog(False);
@@ -584,7 +671,8 @@ begin
   if Result=0 then Exit;
   ClosePopup;
   if Result=2 then begin
-    if not DialogSaving then InitView;
+    if not DialogSaving then begin InitView;
+      {$ifdef PP16_CLIP_ENABLED}ClearSelection{$endif} end;
     DrawUI;
   end;
 end;
@@ -647,7 +735,17 @@ begin
               end;
               Exit;
             end
-            else if M=1 then DocUndo
+            else if M=1 then
+            begin
+              {$ifdef PP16_CLIP_ENABLED}
+              case I of
+                0:DocUndo;
+                2:CopySelection;
+                3:CutSelection;
+                4:BeginPaste;
+              end;
+              {$else}DocUndo;{$endif}
+            end
             else if M=3 then
             begin if I=0 then DocClear(0) else DocClear(ForeColor) end
             else if M=2 then begin GridVisible:=not GridVisible; RedrawView end
@@ -849,17 +947,25 @@ begin
         6:DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
         7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
       end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if Gesture=6 then begin ClipboardPaste(PasteX,PasteY); PasteMode:=False end;
+  {$endif}
   if Gesture in [1,4] then DocCommitAction;
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; PointerBlocked:=Buttons<>0;
 end;
 
 procedure CancelGesture(Buttons:Byte);
-var WasShape:Boolean;
+var WasShape{$ifdef PP16_CLIP_ENABLED},WasOverlay{$endif}:Boolean;
 begin
   WasShape:=Gesture=4;
+  {$ifdef PP16_CLIP_ENABLED}WasOverlay:=Gesture in [5,6];{$endif}
   if Gesture in [1,4] then DocCancelAction;
+  {$ifdef PP16_CLIP_ENABLED}if Gesture=6 then PasteMode:=False;{$endif}
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; PointerBlocked:=Buttons<>0;
   if WasShape then begin DrawCanvas; PaintedUndo:=DocCanUndo end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if WasOverlay then begin ShowSelectionOverlay; PaintedUndo:=DocCanUndo end;
+  {$endif}
 end;
 
 procedure ApplyGesture(X,Y:Integer);
@@ -884,6 +990,19 @@ begin
     ShowShapePreview;
     Exit;
   end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if Gesture=5 then
+  begin
+    SetSelection(SelectionAnchorX,SelectionAnchorY,DX,DY);
+    ShowSelectionOverlay;
+    Exit;
+  end;
+  if Gesture=6 then
+  begin
+    PasteX:=DX; PasteY:=DY; ShowPasteOverlay;
+    Exit;
+  end;
+  {$endif}
   if StrokeValid then DocLine(StrokeX,StrokeY,DX,DY,StrokeColor)
   else DocSetPixel(DX,DY,StrokeColor);
   StrokeX:=DX; StrokeY:=DY; StrokeValid:=True;
@@ -909,6 +1028,17 @@ begin
   if (OpenMenu<0) and ScreenToDoc(S.X,S.Y,DX,DY) then
   begin
     if (S.Pressed and 2)<>0 then Gesture:=2
+    {$ifdef PP16_CLIP_ENABLED}
+    else if PasteMode then
+    begin
+      Gesture:=6; PasteX:=DX; PasteY:=DY;
+    end
+    else if SelectedTool=0 then
+    begin
+      Gesture:=5; SelectionAnchorX:=DX; SelectionAnchorY:=DY;
+      SetSelection(DX,DY,DX,DY);
+    end
+    {$endif}
     else if SelectedTool=2 then
     begin
       DocFloodFill(DX,DY,ForeColor);
@@ -927,7 +1057,7 @@ begin
     else
     begin
       FillBox(0,192,319,199,1);
-      SmallText(3,194,'CUT AND UTILITIES ARE PREVIEWS',14);
+      SmallText(3,194,'UTILITIES ARE PREVIEWS',14);
     end;
     StrokeValid:=False;
     if Gesture<>0 then ApplyGesture(S.X,S.Y)
@@ -965,7 +1095,12 @@ begin
   end;
   if Key=27 then
   begin
+    {$ifdef PP16_CLIP_ENABLED}
+    if PasteMode then begin PasteMode:=False; ShowSelectionOverlay end
+    else if OpenMenu>=0 then ClosePopup else RequestCommand(2);
+    {$else}
     if OpenMenu>=0 then ClosePopup else RequestCommand(2);
+    {$endif}
     PointerBlocked:=Buttons<>0; Exit;
   end;
   if PointerBlocked or (Buttons<>0) then Exit;
@@ -978,9 +1113,16 @@ begin
         if ShiftHeld then StartFileDialog(True) else SaveCurrent;
         Exit;
       end; {Ctrl+S / Ctrl+Shift+S}
+      {$ifdef PP16_CLIP_ENABLED}
+      3:CopySelection; {Ctrl+C}
+      {$endif}
       8:DocUndo;
       49,50,52,56:begin SetZoom(Key-48); RedrawView end;
       9:begin Temp:=ForeColor; ForeColor:=BackColor; BackColor:=Temp; Colors end;
+      {$ifdef PP16_CLIP_ENABLED}
+      22:BeginPaste; {Ctrl+V}
+      24:CutSelection; {Ctrl+X}
+      {$endif}
     end;
     case Scan of
       46:if Key=0 then DocClear(0); {Alt+C}
@@ -1099,6 +1241,69 @@ begin
   if DocChecksum<>Before then Inc(F);
   InitUI; DrawUI;
   ViewChecks:=F;
+end;
+{$endif}
+
+{$ifdef PP16_CLIP_TEST}
+function ClipChecks:Word;
+var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
+
+  procedure Check(OK:Boolean; const Name:String);
+  begin if not OK then begin Inc(F); WriteLn('FAIL: ',Name) end end;
+
+  procedure Feed(SX,SY:Integer; Buttons:Byte);
+  begin S.X:=SX; S.Y:=SY; UpdateButtons(Buttons,S); PointerInput(S) end;
+
+  procedure AtDoc(DX,DY:Integer; Buttons:Byte);
+  begin Feed(CanvasX+(DX-PanX)*Zoom,CanvasY+(DY-PanY)*Zoom,Buttons) end;
+
+  procedure ResetTest;
+  begin
+    InitUI; InitBlankDoc(0); SetZoom(2); PanView(-64,-64);
+    FillChar(S,SizeOf(S),0); SelectedTool:=0; ForeColor:=15; BackColor:=0; DrawUI;
+  end;
+
+begin
+  F:=0; ResetTest;
+  {Use an odd-width source to verify the high-nibble-first packing contract.}
+  for Y:=3 to 5 do for X:=2 to 4 do DocSetPixel(X,Y,(X+Y) and 15);
+  DocSaved; Before:=DocChecksum;
+  AtDoc(2,3,1); AtDoc(4,5,1);
+  Check(SelectionValid and (SelectionX=2) and (SelectionY=3) and
+        (SelectionW=3) and (SelectionH=3) and (DocChecksum=Before),
+        'selection is inclusive and document-neutral');
+  AtDoc(4,5,0); KeyInput(3,0,0);
+  Check(ClipboardValid and (ClipboardWidth=3) and (ClipboardHeight=3) and
+        (ClipboardPixel(0,0)=5) and (ClipboardPixel(2,2)=9) and
+        (DocChecksum=Before) and not DocCanUndo,
+        'copy packs odd width without changing undo or document');
+  KeyInput(24,0,0);
+  for Y:=3 to 5 do for X:=2 to 4 do
+    Check(DocPixel(X,Y)=0,'cut clears every selected pixel to background');
+  Check(DocCanUndo and DocDirty,'cut is one undoable action');
+  KeyInput(8,14,0);
+  Check((DocChecksum=Before) and not DocDirty and not DocCanUndo,
+        'cut undo restores the exact source');
+  KeyInput(3,0,0); KeyInput(22,0,0);
+  Check(PasteMode,'paste enters placement mode');
+  AtDoc(61,61,1);
+  Check((DocChecksum=Before) and (GetPixel(CanvasX+122,CanvasY+122)=10),
+        'paste preview is canvas-only before release');
+  AtDoc(61,61,0);
+  Check((DocPixel(61,61)=5) and (DocPixel(63,63)=9) and DocCanUndo,
+        'paste clips at document edge and commits once');
+  KeyInput(8,14,0);
+  Check(DocChecksum=Before,'paste undo restores document exactly');
+  KeyInput(22,0,0); AtDoc(10,10,1); Before:=DocChecksum;
+  KeyInput(27,1,1); AtDoc(10,10,0);
+  Check((DocChecksum=Before) and not PasteMode and not DocCanUndo,
+        'escape cancels paste preview and preserves undo');
+  ResetTest; DocSetPixel(20,20,6); DocSaved;
+  AtDoc(20,20,1); AtDoc(20,20,0); KeyInput(3,0,0);
+  KeyInput(24,0,0);
+  Check((DocPixel(20,20)=0) and ClipboardValid and (ClipboardPixel(0,0)=6),
+        'single pixel cut copies before clearing');
+  ClipChecks:=F;
 end;
 {$endif}
 

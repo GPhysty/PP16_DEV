@@ -231,3 +231,28 @@ production EXE is 69,290 bytes (60,730 code and 8,456 initialized-data bytes),
 with 9,950 bytes of initial near heap. See
 [M8 behavior and clipboard design](M8-FILL-CLIPBOARD-DESIGN.md). Next: a
 dedicated selection, Cut, Copy and Paste implementation milestone.
+
+## M9 - selection, Cut, Copy and Paste
+
+The Cut toolbar control is now Select: drag an inclusive document-aligned
+rectangle with a canvas-only border. A fixed 2,048-byte conventional-memory
+clipboard stores up to a full 64 by 64 selection high-nibble-first. It survives
+New/Open for the current session and is never saved in `.P16`.
+
+Copy is document-neutral. Cut copies then clears the selection to the current
+background color as one undoable action. Paste is opaque: Ctrl+V or Edit > Paste
+enters a canvas-only placement preview, release commits one clipped action, and
+Escape cancels without replacing an earlier undo. Ctrl+C and Ctrl+X provide Copy
+and Cut; menu availability follows selection, clipboard and undo state.
+
+The focused M9 harness passed at 3,000 cycles/ms in
+`obj/pp16-20260925-204512-8daf42`. The full M1-M9 suite passed at 3,000
+cycles/ms in `obj/pp16-20260925-204531-d411e5`, including file recovery,
+missing-mouse/wrong-video profiles, independent file verification and exact DOS
+memory-chain comparisons. Production EXE: 72,342 bytes; code: 63,747 bytes;
+initialized data: 8,484 bytes; initial near heap: 7,850 bytes. No EMS/XMS
+requirement was added. See [M9 behavior and checks](M9-CLIPBOARD.md).
+
+Next: live interaction acceptance of selection/clipboard behavior on DOSBox-X
+and physical HX/DOS 3.3 validation; transparency, Paste Behind and persistent
+clipboard files remain intentionally deferred.

@@ -7,7 +7,7 @@ uses Dos, VMem, TVideo, TMouse, TCursor
 var Failures:Word; AutoTest, Dump, Probe:Boolean; Pass:Integer;
     PreviousExit:NearCsPointer; InitialHeap:LongInt;
     MouseTest,NoMouseTest,LegacyDemo:Boolean;
-    UITest,UIDump,ShellMode,MouseDemo,DrawingTest,UndoTest,PerfTest,ResponseTest:Boolean;
+    UITest,UIDump,ShellMode,MouseDemo,DrawingTest,UndoTest,PerfTest,ResponseTest,ClipTest:Boolean;
 
 function ReadKey:Byte; forward;
 
@@ -221,12 +221,13 @@ begin
   UndoTest:=ParamStr(1)='/UNDOTEST';
   PerfTest:=ParamStr(1)='/PERF';
   ResponseTest:=ParamStr(1)='/RESP';
+  ClipTest:=ParamStr(1)='/CLIPTEST';
   if ResponseTest then PerfTest:=True;
   UITest:=ParamStr(1)='/UITEST'; UIDump:=ParamStr(1)='/UIDUMP';
   ShellMode:=not (AutoTest or Dump or MouseTest or NoMouseTest or LegacyDemo or MouseDemo);
   Probe:=ParamStr(1)='/PROBE'; InitialHeap:=MemAvail;
   PreviousExit:=ExitProc; ExitProc:=@CleanExit;
-  WriteLn('PP16 M8 - real-mode 8086 / small model');
+  WriteLn('PP16 M9 - real-mode 8086 / small model');
   if not ReserveVideoMemory then begin WriteLn('REFUSED: ',VideoMemoryError); Halt(2) end;
   WriteLn('Video page physical 98000..9FFFF; DOS arena end paragraph=',ArenaEnd);
   WriteLn('Owned DOS block segment=',ReservedSegment,' (0=pre-reserved)');
@@ -253,6 +254,9 @@ begin
     if ParamStr(1)='/FILEUI' then begin
       Check(FileUIChecks=0,'file dialog acceptance'); DumpPage('FILEUI.BIN');
     end;
+    {$endif}
+    {$ifdef PP16_CLIP_TEST}
+    if ClipTest then begin Check(ClipChecks=0,'selection and clipboard acceptance'); DumpPage('M9FRAME.BIN') end;
     {$endif}
     {$ifndef PP16_VIDEO_TEST}
     {$ifdef PP16_RESPONSE_TEST}
@@ -301,6 +305,7 @@ begin
   else if ParamStr(1)='/FILEUI' then WriteLn('M6 UI CHECKS PASSED')
   else if PerfTest then WriteLn('UI PERF CHECKS PASSED')
   else if UndoTest then WriteLn('M5 CHECKS PASSED')
+  else if ClipTest then WriteLn('M9 CHECKS PASSED')
   else if DrawingTest then WriteLn('M8 CHECKS PASSED')
   else if UITest then WriteLn('M3 CHECKS PASSED')
   else if ShellMode then WriteLn('PP16 VIEW SESSION ENDED')

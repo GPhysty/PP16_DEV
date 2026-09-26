@@ -1,6 +1,7 @@
 # PP16 â€” Tandy 1000 HX editor project
 
-Current build: **M8 with native Save/Open, basic shape tools and bucket fill**,
+Current build: **M9 with native Save/Open, basic shape tools, bucket fill and
+selection/clipboard editing**,
 retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
@@ -16,6 +17,11 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 - **Bucket Fill** (top row, third icon): left-click a connected area to replace
   it with the foreground color. It is four-connected, respects color borders,
   and is one undoable action.
+- **Select** (top row, first icon): drag an inclusive rectangle. Its border is
+  an overlay only. **Ctrl+C** copies it; **Ctrl+X** copies then clears it to the
+  background color as one undoable action. **Ctrl+V** enters opaque Paste mode:
+  drag to place the canvas-only candidate, release to commit, or Escape to
+  cancel. Paste clips at the image edge and is one undoable action.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
@@ -66,7 +72,7 @@ The existing watch-log task follows `obj/monitor.log`. PP16 checks keep separate
 reports under `obj/pp16-*`, preserving previous runs. The default check uses
 3,000 cycles/ms to finish quickly; the interactive profile uses 750.
 Pass `-UndoOnly -Cycles 750` for focused M5 checks or `-FileOnly -Cycles 750`
-for M6. Tests now live in separate DOS harnesses under `obj/checks`, built by
+for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests now live in separate DOS harnesses under `obj/checks`, built by
 `build-checks.ps1`. This leaves space for the editor within the small memory
 model's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
 `/UNDOTEST` or the legacy demos; the check script selects the correct harness.
@@ -93,7 +99,7 @@ redraws, coordinate updates and faster navigation. `-ResponseOnly -Cycles 750`
 runs its focused checks and pointer benchmark; these checks also run in the full suite.
 See [M6 behavior and validation](docs/M6-FILES.md), [M7 shapes](docs/M7-SHAPES.md),
 [M8 fill and clipboard design](docs/M8-FILL-CLIPBOARD-DESIGN.md) and the
-[native format specification](docs/P16-FORMAT.md). Legacy `.PUT` import and
+[M9 selection and clipboard](docs/M9-CLIPBOARD.md) and the [native format specification](docs/P16-FORMAT.md). Legacy `.PUT` import and
 variable-size editing remain separate milestones.
 
 ## Original HXTEST baseline
