@@ -246,10 +246,10 @@ Escape cancels without replacing an earlier undo. Ctrl+C and Ctrl+X provide Copy
 and Cut; menu availability follows selection, clipboard and undo state.
 
 The focused M9 harness passed at 3,000 cycles/ms in
-`obj/pp16-20260925-204512-8daf42`. The full M1-M9 suite passed at 3,000
-cycles/ms in `obj/pp16-20260925-204531-d411e5`, including file recovery,
+`obj/pp16-20260926-065644-6b754c`. The full M1-M9 suite passed at 3,000
+cycles/ms in `obj/pp16-20260926-065702-009e1b`, including file recovery,
 missing-mouse/wrong-video profiles, independent file verification and exact DOS
-memory-chain comparisons. Production EXE: 72,342 bytes; code: 63,747 bytes;
+memory-chain comparisons. Production EXE: 72,614 bytes; code: 64,022 bytes;
 initialized data: 8,484 bytes; initial near heap: 7,850 bytes. No EMS/XMS
 requirement was added. See [M9 behavior and checks](M9-CLIPBOARD.md).
 

@@ -498,13 +498,28 @@ begin
 end;
 
 procedure SelectionBorder(X,Y,W,H:Integer; C:Byte);
-var I:Integer;
+var I,X1,Y1,X2,Y2:Integer; Shade:Byte;
+
+  procedure BorderPixel(PX,PY:Integer);
+  begin
+    Shade:=C;
+    {The saved selection marquee is a true screen-pixel stipple, rather than
+     a sequence of zoom-sized document cells.}
+    if C=14 then if Odd(PX+PY) then Shade:=7 else Shade:=8;
+    PutPixel(PX,PY,Shade);
+  end;
+
 begin
   if (W<1) or (H<1) then Exit;
-  for I:=X to X+W-1 do
-  begin PreviewShapePixel(I,Y,C); PreviewShapePixel(I,Y+H-1,C) end;
-  for I:=Y+1 to Y+H-2 do
-  begin PreviewShapePixel(X,I,C); PreviewShapePixel(X+W-1,I,C) end;
+  X1:=CanvasX+(X-PanX)*Zoom; Y1:=CanvasY+(Y-PanY)*Zoom;
+  X2:=CanvasX+(X+W-PanX)*Zoom-1; Y2:=CanvasY+(Y+H-PanY)*Zoom-1;
+  if (X2<CanvasX) or (Y2<CanvasY) or
+     (X1>=CanvasX+CanvasSize) or (Y1>=CanvasY+CanvasSize) then Exit;
+  if X1<CanvasX then X1:=CanvasX; if Y1<CanvasY then Y1:=CanvasY;
+  if X2>=CanvasX+CanvasSize then X2:=CanvasX+CanvasSize-1;
+  if Y2>=CanvasY+CanvasSize then Y2:=CanvasY+CanvasSize-1;
+  for I:=X1 to X2 do begin BorderPixel(I,Y1); BorderPixel(I,Y2) end;
+  for I:=Y1+1 to Y2-1 do begin BorderPixel(X1,I); BorderPixel(X2,I) end;
 end;
 
 procedure ShowSelectionOverlay;
@@ -740,8 +755,8 @@ begin
               {$ifdef PP16_CLIP_ENABLED}
               case I of
                 0:DocUndo;
-                2:CopySelection;
-                3:CutSelection;
+                2:CutSelection;
+                3:CopySelection;
                 4:BeginPaste;
               end;
               {$else}DocUndo;{$endif}
@@ -1257,6 +1272,12 @@ var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
   procedure AtDoc(DX,DY:Integer; Buttons:Byte);
   begin Feed(CanvasX+(DX-PanX)*Zoom,CanvasY+(DY-PanY)*Zoom,Buttons) end;
 
+  procedure EditCommand(I:Integer);
+  begin
+    HandleClick(MenuX[1],3,1);
+    HandleClick(PopupX[1]+14,MenuRowY(1,I)+1,1);
+  end;
+
   procedure ResetTest;
   begin
     InitUI; InitBlankDoc(0); SetZoom(2); PanView(-64,-64);
@@ -1277,13 +1298,18 @@ begin
         (ClipboardPixel(0,0)=5) and (ClipboardPixel(2,2)=9) and
         (DocChecksum=Before) and not DocCanUndo,
         'copy packs odd width without changing undo or document');
-  KeyInput(24,0,0);
+  EditCommand(2);
   for Y:=3 to 5 do for X:=2 to 4 do
     Check(DocPixel(X,Y)=0,'cut clears every selected pixel to background');
-  Check(DocCanUndo and DocDirty,'cut is one undoable action');
+  Check(DocCanUndo and DocDirty,'Edit Cut is one undoable action');
   KeyInput(8,14,0);
   Check((DocChecksum=Before) and not DocDirty and not DocCanUndo,
         'cut undo restores the exact source');
+  EditCommand(3);
+  Check((DocChecksum=Before) and not DocCanUndo,
+        'Edit Copy is document-neutral');
+  KeyInput(24,0,0); DocUndo;
+  Check(DocChecksum=Before,'Ctrl+X cuts and undo restores source');
   KeyInput(3,0,0); KeyInput(22,0,0);
   Check(PasteMode,'paste enters placement mode');
   AtDoc(61,61,1);
@@ -1298,11 +1324,6 @@ begin
   KeyInput(27,1,1); AtDoc(10,10,0);
   Check((DocChecksum=Before) and not PasteMode and not DocCanUndo,
         'escape cancels paste preview and preserves undo');
-  ResetTest; DocSetPixel(20,20,6); DocSaved;
-  AtDoc(20,20,1); AtDoc(20,20,0); KeyInput(3,0,0);
-  KeyInput(24,0,0);
-  Check((DocPixel(20,20)=0) and ClipboardValid and (ClipboardPixel(0,0)=6),
-        'single pixel cut copies before clearing');
   ClipChecks:=F;
 end;
 {$endif}

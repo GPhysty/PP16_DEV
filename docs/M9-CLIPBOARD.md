@@ -1,7 +1,7 @@
 # M9 - selection, Cut, Copy and Paste
 
 The first toolbar control is now **Select**. Dragging on the canvas creates an
-inclusive, document-aligned rectangle. Its yellow border is an overlay only:
+inclusive, document-aligned rectangle. Its alternating dark/light-grey border is an overlay only:
 it never changes image pixels, dirtiness or undo history.
 
 The current session has a fixed 2,048-byte conventional-memory clipboard. It
@@ -30,7 +30,7 @@ undo, clipped opaque Paste, canvas-only placement preview and Escape
 cancellation.
 
 The focused run passed at 3,000 cycles/ms in
-`obj/pp16-20260925-204512-8daf42`. The full M1-M9 regression passed at 3,000
-cycles/ms in `obj/pp16-20260925-204531-d411e5`, including missing-mouse and
+`obj/pp16-20260926-065644-6b754c`. The full M1-M9 regression passed at 3,000
+cycles/ms in `obj/pp16-20260926-065702-009e1b`, including missing-mouse and
 wrong-video profiles, native-file recovery, independent file verification and
 exact DOS memory-chain comparisons.
