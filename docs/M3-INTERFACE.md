@@ -5,13 +5,17 @@ File dialog. These are visual references supplied by the user, not screens
 captured through automation. Native window capture remains unavailable.
 
 The 320x200 implementation preserves the three-column layout, blue menu and
-status bars, green title, beveled tools, grid/zoom controls, separate preview,
-image-number strip and information panel. The palette becomes a usable 4x4
-matrix of the 16 Tandy colors. BIOS 8x8 text serves the menus; an original
-3x5 font fits the small labels. No reference artwork is embedded.
+status bars, green title, beveled tools, grid/zoom controls and separate
+preview. The image-number strip and information panel were removed because
+PP16 has one fixed 64x64 image and their controls had no useful function. The
+palette becomes a usable 4x4 matrix of the 16 Tandy colors. BIOS 8x8 text
+serves the menus; an original 3x5 font fits the small labels. No reference
+artwork is embedded.
 
-All menu groups follow the screenshots, including separators and shortcut
-hints. Unimplemented entries are gray and cannot change the image. File Exit,
+The working M9 menus retain the reference-style layout, separators and shortcut
+hints. Entries that require variable-size images, palette state, animation,
+screen design, printer support, or a separate data format are omitted rather
+than presented as disabled commands. File Exit,
 View Grid and Help work; shortcuts on gray entries describe planned reference
 behavior and are not active. Keys 1/2/4/8 zoom; arrows pan; F4 toggles the
 grid; F1 opens help. Escape closes a menu before exiting the application.
@@ -58,8 +62,11 @@ follow that order. Utilities corresponds to the Special Effects Brush in
 PP256.HLP (H067). Selecting it shows the current effect in the selector
 below the tool icons. Clicking that name opens the blue dropdown.
 
-The fourteen entries, in reference order, are BRIGHT, DARK, TINT, FUR, MIX,
-SOFT, UNZAG, HOLLOW, TILE, XOR, GREY, SWEEP, SWAP, EDGE. Default is SOFT.
+The nine retained entries, in reference order, are FUR, MIX, SOFT, UNZAG,
+HOLLOW, TILE, SWEEP, SWAP, EDGE. Default is SOFT. BRIGHT, DARK, TINT, GREY
+and XOR are intentionally absent from this fixed 16-colour build: the first
+four need an explicit palette-mapping policy, while XOR on palette indices is
+not a reliable image operation.
 Click an entry, or drag from the selector and release on an entry. Releasing
 on the original header leaves a click-open menu. Clicking the current header
 or outside cancels; dragging outside and releasing cancels. Dismissal consumes
@@ -67,17 +74,17 @@ the click and cannot select a covered palette color. Hovering an entry shows
 its help-based description in the footer. Action > Effect follows the chosen
 name, but remains disabled: choosing an effect is UI state, not applying it.
 
-The source says BRIGHT/DARK/TINT/FUR/MIX have independent strengths of 1..100,
-configured with a right-click on the selector. That dialog and all effect
-algorithms are deferred. Brightness/gray/antialias effects require deliberate
-16-color mappings, not arithmetic on palette indices. XOR operates on color
-indices; TILE needs a clipboard; SWAP replaces current with secondary color.
-No image data or strength settings are changed by this checkpoint.
+The reference describes independent 1..100 strengths for several effects,
+configured with a right-click on the selector. That dialog and all retained
+effect algorithms are deferred. TILE can use the implemented clipboard; SWAP
+can replace the current colour with the secondary colour. No image data or
+strength settings are changed by this checkpoint.
 
 Tests cover click-open/release, click selection, drag selection, outside-drag
-cancellation, header cancellation, dismissal over the palette, all hover rows,
-and the unchanged document checksum. See M3-TESTS.txt and the rendered
-[Utilities dropdown](screenshots/M3-utilities.png).
+cancellation, header cancellation, dismissal over the palette, all nine hover
+rows, and the unchanged document checksum. See M3-TESTS.txt and the rendered
+Utilities dropdown screenshot; that historical image shows the superseded
+14-item selector.
 
 The toolbar now uses original 14x14 pixel glyphs: scissors, crossed wrench and
 screwdriver, pouring bucket, paintbrush with ferrule and broad bristles,

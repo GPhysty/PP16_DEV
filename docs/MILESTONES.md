@@ -285,3 +285,36 @@ Higher zoom modes continue using the existing scale/grid-aware path. The full
 M1-M9 suite passed at 3,000 cycles/ms in `obj/pp16-20260927-130614-1b45a2`.
 The current production build is 69,878 bytes (61,845 code bytes and 7,924
 initialized-data bytes), leaving 3,691 code bytes below the small-model limit.
+
+M9 file-buffer follow-up: normal `.P16` Open now reads its 2,048-byte payload
+directly into the staging document buffer, replacing 32 row reads and staging
+copies. Save verification intentionally remains row-by-row. The complete suite
+passed at 3,000 cycles/ms in `obj/pp16-20260927-131718-3061eb`; the current
+production EXE is 69,910 bytes (61,873 code bytes, 7,924 initialized data),
+leaving 3,663 bytes of code headroom.
+
+M9 interface cleanup: removed the dead-end file, palette, animation, screen
+designer, printer and fixed-size Image-management placeholders. Utilities and
+all future-capable image/clipboard operations remain deferred. The full suite
+passed at 3,000 cycles/ms in `obj/pp16-20260927-133646-a95369`. The production
+build is 69,864 bytes (61,860 code bytes and 7,894 initialized-data bytes),
+leaving 3,676 bytes of code headroom.
+
+M9 Utilities cleanup: removed BRIGHT, DARK, TINT, GREY and XOR from the
+Utilities selector, and removed View's Brighter/Darker Shade entries. Those
+operations either require an explicit mapping of the fixed 16-colour palette or
+are unreliable when applied to palette indices. The nine retained effects
+(FUR, MIX, SOFT, UNZAG, HOLLOW, TILE, SWEEP, SWAP and EDGE) remain visible as
+future-capable previews. The full M1-M9 suite passed at 3,000 cycles/ms in
+`obj/pp16-20260927-134703-61b850`. Production build: 69,500 bytes (61,860 code
+bytes and 7,530 initialized-data bytes), retaining 3,676 bytes of code
+headroom.
+
+M9 single-image panel cleanup: removed the static `NO - 1 +` strip and the
+`TOTAL/BYTES/ZOOM/CLEAN` information panel below the preview. PP16 has exactly
+one fixed-size image, no multi-image facility, and these controls had no input
+or document behavior behind them. The title's dirty `*`, working zoom buttons,
+pan controls and preview navigation remain. The full M1-M9 suite passed at
+3,000 cycles/ms in `obj/pp16-20260927-135901-938d35`. Production build:
+68,988 bytes (61,416 code bytes and 7,466 initialized-data bytes), leaving
+4,120 bytes of code headroom.

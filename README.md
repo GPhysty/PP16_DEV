@@ -6,12 +6,13 @@ retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
 
-Current optimized M9 build: **69,878-byte EXE**, with **61,845 code bytes**
-and 7,924 initialized-data bytes. It remains within the 64 KB small-model code
-segment (3,691 bytes of production code headroom). The current checkpoint uses
+Current optimized M9 build: **68,988-byte EXE**, with **61,416 code bytes**
+and 7,466 initialized-data bytes. It remains within the 64 KB small-model code
+segment (4,120 bytes of production code headroom). The current checkpoint uses
 FPC `-O1 -Os`, packed 3x5 font glyphs, shared shape rasterizers, incremental
 shape previews, packed-row image-preview drawing, and packed-row clipboard
-copy for aligned selections. See the optimization checkpoint in
+copy for aligned selections. It omits the nonfunctional single-image number and
+information panels. See the optimization checkpoint in
 [MILESTONES.md](docs/MILESTONES.md).
 The current M6 build includes the save/restart fix for DOSBox profiles with
 long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
@@ -217,8 +218,11 @@ M3 layout and behavior are documented in [M3-INTERFACE.md](docs/M3-INTERFACE.md)
 
 Toolbar order: Cut, Utilities, Bucket Fill, Brush, Eraser, Circle, Square, Line.
 Select **Utilities**, then click the effect name below the icons for its
-14-item dropdown. Click an entry or drag down and release; outside clicks
+9-item dropdown. Click an entry or drag down and release; outside clicks
 cancel. The selected effect is a preview choice only; effects do not yet edit
-pixels. [Dropdown preview](docs/screenshots/M3-utilities.png).
+pixels. The fixed 16-colour build deliberately omits palette-dependent
+Brightness/Darkness/Tint/Grey and XOR effects until a defined colour-mapping
+policy exists. The earlier M3 dropdown screenshot is retained as an archival
+reference and shows the superseded 14-item selector.
 
 [M4 behavior and tests](docs/M4-DRAWING.md). `out/M3.EXE` preserves the passing layout build.

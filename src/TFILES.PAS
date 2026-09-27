@@ -72,15 +72,22 @@ begin
     for I:=0 to 19 do if H[I]<>Expected[I] then OK:=False;
     if not OK then Error('NOT A SUPPORTED 64X64 P16 V1 FILE',0);
   end;
-  I:=0;
-  while OK and (I<DocBytes) do begin
-    {$I-} BlockRead(F,Row,SizeOf(Row),N); E:=IOResult; {$I+}
-    if (E<>0) or (N<>SizeOf(Row)) then begin Error('PIXEL READ FAILED',E); OK:=False end
-    else if Verify then begin
-      for J:=0 to 63 do if Row[J]<>Stage[I+J] then OK:=False;
-      if not OK then Error('SAVED PIXELS DID NOT VERIFY',0);
-    end else Move(Row,Stage[I],SizeOf(Row));
-    Inc(I,64);
+  if OK and not Verify then
+  begin
+    {$I-} BlockRead(F,Stage,DocBytes,N); E:=IOResult; {$I+}
+    if (E<>0) or (N<>DocBytes) then begin Error('PIXEL READ FAILED',E); OK:=False end;
+  end
+  else begin
+    I:=0;
+    while OK and (I<DocBytes) do begin
+      {$I-} BlockRead(F,Row,SizeOf(Row),N); E:=IOResult; {$I+}
+      if (E<>0) or (N<>SizeOf(Row)) then begin Error('PIXEL READ FAILED',E); OK:=False end
+      else begin
+        for J:=0 to 63 do if Row[J]<>Stage[I+J] then OK:=False;
+        if not OK then Error('SAVED PIXELS DID NOT VERIFY',0);
+      end;
+      Inc(I,64);
+    end;
   end;
   {$I-} Close(F); E:=IOResult; {$I+}
   if E<>0 then begin Error('CLOSE FAILED',E); OK:=False end;

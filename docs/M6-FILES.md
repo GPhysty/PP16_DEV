@@ -104,3 +104,9 @@ The pre-fix executable, map and file units remain in
 `obj/before-lfn-fix-20260920-112546`. The corrected EXE is 65,140 bytes, with
 56,562 code bytes and the same 16,094-byte initial near heap. Both
 `out/PP16.EXE` and `out/M6.EXE` contain the corrected build.
+## Current I/O cleanup
+
+Normal `.P16` Open reads the complete 2,048-byte packed payload directly into
+the staging document buffer in one DOS block read. Save verification retains
+its row-by-row comparison against the staged source, so write verification and
+all rollback/recovery behavior remain unchanged.

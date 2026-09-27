@@ -23,21 +23,15 @@ uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
       ('SELECT','UTILITIES','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
-      UtilityNames:array[0..13] of String[6]=
-      ('BRIGHT','DARK','TINT','FUR','MIX','SOFT','UNZAG','HOLLOW',
-       'TILE','XOR','GREY','SWEEP','SWAP','EDGE');
-      UtilityHelp:array[0..13] of String[65]=(
-       'BRIGHT: LIGHTEN NONBLACK COLORS - PREVIEW ONLY',
-       'DARK: DARKEN COLORS - PREVIEW ONLY',
-       'TINT: TINT WITH CURRENT COLOR - PREVIEW ONLY',
+      UtilityNames:array[0..8] of String[6]=
+      ('FUR','MIX','SOFT','UNZAG','HOLLOW','TILE','SWEEP','SWAP','EDGE');
+      UtilityHelp:array[0..8] of String[65]=(
        'FUR: MAKE OBJECT EDGES IRREGULAR - PREVIEW ONLY',
        'MIX: RANDOMLY SWAP PIXEL POSITIONS - PREVIEW ONLY',
        'SOFT: SOFTEN ALL EDGES - PREVIEW ONLY',
        'UNZAG: SMOOTH JAGGED EDGES - PREVIEW ONLY',
        'HOLLOW: TURN SOLID AREAS INTO OUTLINES - PREVIEW ONLY',
        'TILE: REPEAT THE CLIPBOARD IMAGE - PREVIEW ONLY',
-       'XOR: XOR PIXEL INDICES WITH CURRENT COLOR - PREVIEW ONLY',
-       'GREY: CONVERT TO GRAYSCALE - PREVIEW ONLY',
        'SWEEP: CLEAN UP ISOLATED PIXELS - PREVIEW ONLY',
        'SWAP: REPLACE CURRENT WITH SECONDARY COLOR - PREVIEW ONLY',
        'EDGE: ADD A ONE PIXEL OUTLINE - PREVIEW ONLY');
@@ -307,12 +301,6 @@ begin
     Button(156+I*14,161,13,10,False);
     Triangle(159+I*14,162,I);
   end;
-  FillBox(218,135,318,150,1); Box(218,135,318,150,9);
-  SmallText(223,141,'NO',15); Button(240,139,10,9,False); SmallText(243,141,'-',8);
-  SmallText(260,141,'1',15); Button(303,139,10,9,False); SmallText(306,141,'+',8);
-  FillBox(218,154,318,187,1); Box(218,154,318,187,9);
-  SmallText(225,158,'TOTAL:1',15); SmallText(225,166,'BYTES:2048',15);
-  SmallText(225,174,'ZOOM:'+Num(Zoom)+'X',15); if DocDirty then SmallText(225,182,'UNSAVED',14) else SmallText(225,182,'CLEAN',14);
 end;
 
 procedure Status(X,Y:Integer);
@@ -352,14 +340,14 @@ end;
 function UtilityAt(X,Y:Integer):Integer;
 begin
   UtilityAt:=-1;
-  if (X>=0) and (X<68) and (Y>=70) and (Y<182) then
+  if (X>=0) and (X<68) and (Y>=70) and (Y<142) then
     UtilityAt:=(Y-70) div 8;
 end;
 
 procedure UtilityRow(I:Integer);
 var BG,FG:Byte;
 begin
-  if (I<0) or (I>13) then Exit;
+  if (I<0) or (I>8) then Exit;
   if I=UtilityHover then begin BG:=15; FG:=1 end else begin BG:=1; FG:=15 end;
   FillBox(0,70+I*8,67,77+I*8,BG); Text8(7,70+I*8,UtilityNames[I],FG);
 end;
@@ -375,27 +363,26 @@ procedure UtilityPopup;
 var I:Integer;
 begin
   FillBox(0,62,57,69,15); Text8(7,62,UtilityNames[SelectedUtility],1);
-  for I:=0 to 13 do UtilityRow(I);
+  for I:=0 to 8 do UtilityRow(I);
   UtilityStatus;
 end;
 
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
       PopupW:array[0..5] of Integer=(168,152,208,200,176,135);
-      MenuRows:array[0..5] of Integer=(16,9,12,12,9,8);
+      MenuRows:array[0..5] of Integer=(5,9,4,12,0,8);
       Labels:array[0..5,0..15] of String[20]=(
-       ('New','Open...','Append...','Save','Save As...','Save as DATA...',
-        '','Load Clipboard...','Save Clipboard...','','Load Palette...',
-        'Save Palette...','','Print Index...','','Exit'),
+       ('New','Open...','Save','Save As...','Exit',
+        '','','','','','','','','','',''),
        ('Undo','','Cut','Copy','Paste','','Transparency On','Paste Behind',
         'Show Clipboard','','','','','','',''),
-       ('Cross-hair On','Highlight On','Grid On','Image as Tile','Palette Tools',
-        '','Test Animation...','Screen Designer...','','Brighter Shade','Darker Shade','',
+       ('Cross-hair On','Highlight On','Grid On','Image as Tile','',
+        '','','','','','','',
         '','','',''),
        ('Clear','Clear to Colour','','Scroll Up','Scroll Down','Scroll Left',
         'Scroll Right','Rotate 90','Flip Horizontal','Flip Vertical','','Effect:SOFT',
         '','','',''),
-       ('Add...','Delete...','Resize...','Duplicate...','Convert to Mask...',
-        'Crop','Add as Gradient','','Show All','','','','','','',''),
+       ('','','','','',
+        '','','','','','','','','','',''),
        ('Contents','Index','','Keyboard','Using Help','','About...','',
         '','','','','','','',''));
 
@@ -409,7 +396,7 @@ end;
 
 function Enabled(M,I:Integer):Boolean;
 begin
-  Enabled:=((M=0) and (I in [0,1,3,4,15])) or
+  Enabled:=((M=0) and (I in [0,1,2,3,4])) or
 {$ifdef PP16_CLIP_ENABLED}
            ((M=1) and (((I=0) and DocCanUndo) or
                        ((I in [2,3]) and SelectionValid) or
@@ -495,7 +482,7 @@ begin
     SavedY1:=9; SavedY2:=MenuRowY(OpenMenu,MenuRows[OpenMenu])+4;
   end else case OpenMenu of
     6:begin SavedX1:=52; SavedY1:=44; SavedX2:=268; SavedY2:=133 end;
-    7:begin SavedX1:=0; SavedY1:=62; SavedX2:=78; SavedY2:=181 end;
+    7:begin SavedX1:=0; SavedY1:=62; SavedX2:=78; SavedY2:=141 end;
     8:begin SavedX1:=36; SavedY1:=49; SavedX2:=283; SavedY2:=143 end;
     9:begin SavedX1:=50; SavedY1:=36; SavedX2:=269; SavedY2:=145 end;
   end;
@@ -640,7 +627,7 @@ begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
   PaintedDirty:=False;
   RepaintedCells:=0;
   PendingCommand:=0; ConfirmDiscard:=False; PaintedUndo:=False;
-  SelectedUtility:=5; UtilityHover:=-1; UtilityDrag:=False; UtilityMoved:=False;
+  SelectedUtility:=2; UtilityHover:=-1; UtilityDrag:=False; UtilityMoved:=False;
   {$ifdef PP16_CLIP_ENABLED}ClearClipboard; ClearSelection;{$endif}
   ExitRequested:=False; SelectedTool:=3; OpenMenu:=-1; HoverDX:=-1; HoverDY:=-1 end;
 
@@ -661,7 +648,7 @@ begin
   PreviewValid:=False; PopupSaved:=False;
   FillBox(0,0,319,199,0); FillBox(0,0,319,7,1);
   Text8(4,0,'File',15); Text8(56,0,'Edit',15); Text8(108,0,'View',15);
-  Text8(160,0,'Action',15); Text8(220,0,'Image',15); Text8(284,0,'Help',15);
+  Text8(160,0,'Action',15); Text8(284,0,'Help',15);
   Title;
   Tools; Colors; DrawCanvas; Preview; Navigation; Status(-1,-1);
   FillBox(0,192,319,199,1);
@@ -799,6 +786,7 @@ begin
     if (Y<8) and (Button=1) then
     begin
       I:=0; while (I<5) and (X>=MenuX[I+1]-2) do Inc(I);
+      if I=4 then Exit; {Image management needs variable-size documents.}
       SetPopup(I); Exit;
     end;
     if OpenMenu<6 then
@@ -816,7 +804,7 @@ begin
             begin
               case I of
                 0:RequestCommand(1); 1:RequestCommand(3);
-                3:SaveCurrent; 4:StartFileDialog(True); 15:RequestCommand(2);
+                2:SaveCurrent; 3:StartFileDialog(True); 4:RequestCommand(2);
               end;
               Exit;
             end
@@ -846,6 +834,7 @@ begin
   begin
     if Button<>1 then Exit;
     I:=0; while (I<5) and (X>=MenuX[I+1]-2) do Inc(I);
+    if I=4 then Exit; {No fixed-64x64 Image menu in M9.}
     SetPopup(I); Exit;
   end;
   if (Button=1) and (X>=194) and (X<=211) and (Y>=18) and (Y<=25) then
@@ -931,8 +920,6 @@ begin
   if DocDirty<>PaintedDirty then
   begin
     Title;
-    FillBox(225,182,315,186,1);
-    if DocDirty then SmallText(225,182,'UNSAVED',14) else SmallText(225,182,'CLEAN',14);
     PaintedDirty:=DocDirty;
   end;
   if DocCanUndo<>PaintedUndo then
@@ -1288,14 +1275,14 @@ begin
   HandleClick(8,87,1); if (SelectedUtility<>2) or (OpenMenu<>-1) then Inc(F);
   HandleClick(8,65,1); HandleClick(75,150,1);
   if (ForeColor<>0) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1); UtilityMotion(8,175,0); UtilityMotion(8,175,1);
-  if (SelectedUtility<>13) or (OpenMenu<>-1) then Inc(F);
+  HandleClick(8,65,1); UtilityMotion(8,135,0); UtilityMotion(8,135,1);
+  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
   HandleClick(8,65,1); UtilityMotion(100,110,0); UtilityMotion(100,110,1);
-  if (SelectedUtility<>13) or (OpenMenu<>-1) then Inc(F);
+  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
   HandleClick(8,65,1); HandleClick(8,65,1);
-  if (SelectedUtility<>13) or (OpenMenu<>-1) then Inc(F);
+  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
   HandleClick(8,65,1);
-  for I:=0 to 13 do begin UtilityMotion(8,71+I*8,0); if UtilityHover<>I then Inc(F) end;
+  for I:=0 to 8 do begin UtilityMotion(8,71+I*8,0); if UtilityHover<>I then Inc(F) end;
   HandleClick(8,65,1);
   if DocChecksum<>Before then Inc(F);
   InitUI; DrawUI;
@@ -1719,7 +1706,7 @@ begin
   KeyInput(13,28,0);
   Check((OpenMenu=-1) and (DocChecksum=Before) and DocCanUndo,
         'default Enter cancels New and preserves undo');
-  Choose(0,15); KeyInput(27,1,0);
+  Choose(0,4); KeyInput(27,1,0);
   Check(not ExitRequested and (DocChecksum=Before),'Escape cancels dirty File Exit');
   KeyInput(27,1,0); HandleClick(180,115,1);
   Check(not ExitRequested and (OpenMenu=-1),'mouse Cancel keeps working image');
@@ -1728,7 +1715,7 @@ begin
         'explicit discard creates clean blank and resets undo');
   InitUI; Choose(0,0);
   Check((DocChecksum=0) and (OpenMenu=-1),'clean New needs no discard prompt');
-  Choose(0,15); Check(ExitRequested,'clean File Exit works');
+  Choose(0,4); Check(ExitRequested,'clean File Exit works');
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,0);
   Feed(80,115,1); AtDoc(30,30,1); AtDoc(30,30,0);
@@ -1736,7 +1723,7 @@ begin
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); KeyInput(27,1,0);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check(ExitRequested,'explicit keyboard discard exits');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,15);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
   HandleClick(80,115,1); Check(ExitRequested,'explicit mouse discard exits');
 
   {Leave a realistic dirty-document prompt for the framebuffer inspection.}
