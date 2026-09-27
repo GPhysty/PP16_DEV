@@ -56,6 +56,7 @@ var OpenMenu:Integer;
     UtilityHover:Integer; UtilityDrag,UtilityMoved:Boolean;
     Gesture:Byte; StrokeColor:Byte; StrokeX,StrokeY:Integer;
     ShapeTool:Byte; ShapeX,ShapeY:Integer;
+    ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
     PendingCommand:Byte; ConfirmDiscard,PaintedUndo:Boolean;
@@ -77,7 +78,7 @@ var OpenMenu:Integer;
 procedure PaintChanges; forward;
 procedure StartFileDialog(Saving:Boolean); forward;
 {$ifdef PP16_CLIP_ENABLED}
-procedure PreviewShapePixel(X,Y:Integer; C:Byte); forward;
+procedure PreviewShapePixel(X,Y:Integer; C:Integer); forward;
 {$endif}
 
 function Num(N:Integer):String;
@@ -623,6 +624,7 @@ begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
   CachedTool:=-1; CachedUtility:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
   Gesture:=0; PointerBlocked:=False; StrokeValid:=False; ShapeValid:=False;
+  ShapePreviewVisible:=False;
   PaintedDirty:=False;
   RepaintedCells:=0;
   PendingCommand:=0; ConfirmDiscard:=False; PaintedUndo:=False;
@@ -929,13 +931,14 @@ begin
   end;
 end;
 
-procedure PreviewShapePixel(X,Y:Integer; C:Byte);
+procedure PreviewShapePixel(X,Y:Integer; C:Integer);
 var SX,SY,J:Integer;
 begin
   {The live outline is a canvas-only overlay. It never enters the document or
    the 1:1 image preview, so release remains the one commit point.}
   if (X<PanX) or (X>=PanX+VisibleCells) or
      (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
+  if C<0 then C:=DocPixel(X,Y);
   SX:=CanvasX+(X-PanX)*Zoom; SY:=CanvasY+(Y-PanY)*Zoom;
   FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
   if GridVisible and (Zoom>=4) then
@@ -945,7 +948,7 @@ begin
   end;
 end;
 
-procedure PreviewShapeLine(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure PreviewShapeLine(X1,Y1,X2,Y2:Integer; C:Integer);
 var DX,DY,SX,SY,E,E2:Integer;
 begin
   DX:=Abs(X2-X1); DY:=-Abs(Y2-Y1);
@@ -961,7 +964,7 @@ begin
   until False;
 end;
 
-procedure PreviewShapeSquare(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure PreviewShapeSquare(X1,Y1,X2,Y2:Integer; C:Integer);
 var Side,SX,SY,Limit:Integer;
 begin
   Side:=Abs(X2-X1); if Abs(Y2-Y1)>Side then Side:=Abs(Y2-Y1);
@@ -976,7 +979,7 @@ begin
   PreviewShapeLine(X2,Y2,X1,Y2,C); PreviewShapeLine(X1,Y2,X1,Y1,C);
 end;
 
-procedure PreviewShapeCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure PreviewShapeCircle(X1,Y1,X2,Y2:Integer; C:Integer);
 var R,X,Y,D:Integer;
 begin
   R:=Abs(X2-X1); if Abs(Y2-Y1)>R then R:=Abs(Y2-Y1);
@@ -993,20 +996,25 @@ begin
   end;
 end;
 
+procedure DrawShapeOutline(X,Y:Integer; C:Integer);
+begin
+  case ShapeTool of
+    5:PreviewShapeCircle(StrokeX,StrokeY,X,Y,C);
+    6:PreviewShapeSquare(StrokeX,StrokeY,X,Y,C);
+    7:PreviewShapeLine(StrokeX,StrokeY,X,Y,C);
+  end;
+end;
+
 procedure ShowShapePreview;
 begin
   if not ShapeValid then Exit;
-  {Redrawing just the canvas removes the prior outline before drawing the new
-   one, including any grid cells it covered.}
-  DrawCanvas;
-  case ShapeTool of
-    5:PreviewShapeCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
-    6:PreviewShapeSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
-    7:PreviewShapeLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
-  end;
-  {DrawCanvas reflects the active action's temporarily disabled Undo control.
-   Force PaintChanges to restore that control after the release commits.}
-  PaintedUndo:=DocCanUndo;
+  {Restore only the cells of the prior temporary outline, including grid
+   borders, then paint the new outline. This avoids a full 128x128 rebuild
+   for every pointer movement.}
+  if ShapePreviewVisible then
+    DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
+  DrawShapeOutline(ShapeX,ShapeY,StrokeColor);
+  ShapePreviewX:=ShapeX; ShapePreviewY:=ShapeY; ShapePreviewVisible:=True;
 end;
 
 procedure EndGesture(Buttons:Byte);
@@ -1019,7 +1027,8 @@ begin
         7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
       end;
   if Gesture in [1,4] then DocCommitAction;
-  Gesture:=0; StrokeValid:=False; ShapeValid:=False; PointerBlocked:=Buttons<>0;
+  Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
+  PointerBlocked:=Buttons<>0;
 end;
 
 procedure CancelGesture(Buttons:Byte);
@@ -1028,8 +1037,10 @@ begin
   WasShape:=Gesture=4;
   {$ifdef PP16_CLIP_ENABLED}WasOverlay:=Gesture=5;{$endif}
   if Gesture in [1,4] then DocCancelAction;
-  Gesture:=0; StrokeValid:=False; ShapeValid:=False; PointerBlocked:=Buttons<>0;
-  if WasShape then begin DrawCanvas; PaintedUndo:=DocCanUndo end;
+  if WasShape and ShapePreviewVisible then
+    DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
+  Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
+  PointerBlocked:=Buttons<>0;
   {$ifdef PP16_CLIP_ENABLED}
   if WasOverlay then begin ShowSelectionOverlay; PaintedUndo:=DocCanUndo end;
   {$endif}
@@ -1123,6 +1134,7 @@ begin
     begin
       Gesture:=4; ShapeTool:=SelectedTool; StrokeColor:=ForeColor;
       StrokeX:=DX; StrokeY:=DY; ShapeX:=DX; ShapeY:=DY; ShapeValid:=True;
+      ShapePreviewVisible:=False;
       DocBeginAction;
     end
     else
@@ -1772,4 +1784,3 @@ begin
 end;
 {$endif}
 end.
-
