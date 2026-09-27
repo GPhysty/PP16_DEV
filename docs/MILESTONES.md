@@ -259,3 +259,22 @@ requirement was added. See [M9 behavior and checks](M9-CLIPBOARD.md).
 Next: live interaction acceptance of selection/clipboard behavior on DOSBox-X
 and physical HX/DOS 3.3 validation; transparency, Paste Behind and persistent
 clipboard files remain intentionally deferred.
+
+## M9 optimization checkpoint - 2026-09-27
+
+The accepted M9 source was compacted and its repeated rendering paths were
+measured before each change was retained. FPC now uses `-O1 -Os`; the compact
+3x5 UI font stores 15-bit glyph values rather than temporary strings. Line,
+Square and Circle use one shared rasterizer for committed document pixels and
+temporary preview pixels. Live shape movement restores only the prior outline,
+rather than rebuilding the full canvas. Full actual-size preview redraws use
+packed rows, and even-aligned/even-width clipboard copies use packed document
+rows; odd cases retain their pixel-accurate fallback.
+
+The complete M1-M9 suite passed at 3,000 cycles/ms in
+`obj/pp16-20260927-125542-e24c91`, including Clipboard, file recovery,
+missing-mouse/wrong-video profiles, production Save/Open sessions and DOS
+memory-chain verification. The production executable is 69,782 bytes: 61,758
+code bytes and 7,924 initialized-data bytes, leaving 3,778 bytes of headroom
+below the 65,536-byte small-model code-segment ceiling. `out/M9.EXE` preserves
+this optimized M9 checkpoint; `out/PP16.EXE` remains the current working build.

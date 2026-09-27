@@ -5,6 +5,14 @@ selection/clipboard editing**,
 retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
+
+Current optimized M9 build: **69,782-byte EXE**, with **61,758 code bytes**
+and 7,924 initialized-data bytes. It remains within the 64 KB small-model code
+segment (3,778 bytes of production code headroom). The current checkpoint uses
+FPC `-O1 -Os`, packed 3x5 font glyphs, shared shape rasterizers, incremental
+shape previews, packed-row image-preview drawing, and packed-row clipboard
+copy for aligned selections. See the optimization checkpoint in
+[MILESTONES.md](docs/MILESTONES.md).
 The current M6 build includes the save/restart fix for DOSBox profiles with
 long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 
@@ -78,7 +86,8 @@ for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests now live in sepa
 model's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
 `/UNDOTEST` or the legacy demos; the check script selects the correct harness.
 
-`out/PP16.EXE` is the current program; `out/M4.EXE` preserves the previous
+`out/PP16.EXE` is the current program; `out/M9.EXE` preserves the accepted
+optimized M9 checkpoint; `out/M4.EXE` preserves the previous
 drawing checkpoint; `out/M1.EXE` preserves the passing M1
 checkpoint and `out/HXTEST.EXE` preserves the original smoke test. On the HX,
 copy PP16.EXE and run `PP16` with a mouse driver already loaded. No GRAFIX TSR

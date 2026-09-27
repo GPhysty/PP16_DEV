@@ -25,6 +25,14 @@ not the editor's document or undo semantics.
 - Pan/zoom restores the old preview outline from document pixels and draws its
   replacement. It does not rebuild the complete preview. Unchanged/clamped views
   skip the view redraw. Full redraw invalidates all these caches.
+- Live circle, square and line previews restore only their prior outline cells
+  before drawing the replacement; they do not rebuild the 128 by 128 canvas for
+  each mouse movement. Escape restores that temporary outline from document
+  pixels.
+- A full redraw of the 64 by 64 actual-size image preview packs each document
+  row into the preview's 33 odd-aligned video bytes. This replaces 4,096
+  individual pixel writes with 64 row writes; incremental preview updates are
+  unchanged.
 
 `/PERF` measures ten repeatable interaction cases using BIOS ticks. File I/O,
 initialization and full-reference redraws are outside the measured intervals.
