@@ -5,62 +5,67 @@ procedure SmallText(X,Y:Integer; const S:String; C:Byte);
 procedure SmallCharOpaque(X,Y:Integer; C:Char; FG,BG:Byte);
 implementation
 uses TVideo;
-function Glyph(C:Char):String;
+function GlyphBits(C:Char):Word;
 begin
   case UpCase(C) of
-    'A':Glyph:='010101111101101'; 'B':Glyph:='110101110101110';
-    'C':Glyph:='011100100100011'; 'D':Glyph:='110101101101110';
-    'E':Glyph:='111100110100111'; 'F':Glyph:='111100110100100';
-    'G':Glyph:='011100101101011'; 'H':Glyph:='101101111101101';
-    'I':Glyph:='111010010010111'; 'J':Glyph:='001001001101010';
-    'K':Glyph:='101101110101101'; 'L':Glyph:='100100100100111';
-    'M':Glyph:='101111111101101'; 'N':Glyph:='101111111111101';
-    'O':Glyph:='010101101101010'; 'P':Glyph:='110101110100100';
-    'Q':Glyph:='010101101111011'; 'R':Glyph:='110101110101101';
-    'S':Glyph:='011100010001110'; 'T':Glyph:='111010010010010';
-    'U':Glyph:='101101101101111'; 'V':Glyph:='101101101101010';
-    'W':Glyph:='101101111111101'; 'X':Glyph:='101101010101101';
-    'Y':Glyph:='101101010010010'; 'Z':Glyph:='111001010100111';
-    '0':Glyph:='111101101101111'; '1':Glyph:='010110010010111';
-    '2':Glyph:='110001010100111'; '3':Glyph:='110001010001110';
-    '4':Glyph:='101101111001001'; '5':Glyph:='111100110001110';
-    '6':Glyph:='011100111101111'; '7':Glyph:='111001010010010';
-    '8':Glyph:='111101111101111'; '9':Glyph:='111101111001110';
-    ':':Glyph:='000010000010000'; '-':Glyph:='000000111000000';
-    '+':Glyph:='000010111010000'; '=':Glyph:='000111000111000';
-    '/':Glyph:='001001010100100'; '.':Glyph:='000000000000010';
-    '[':Glyph:='110100100100110'; ']':Glyph:='011001001001011';
-    '<':Glyph:='001010100010001'; '>':Glyph:='100010001010100';
-    '^':Glyph:='010101000000000'; '?':Glyph:='110001010000010';
-    else Glyph:='000000000000000';
+    'A':GlyphBits:=$2BED; 'B':GlyphBits:=$6BAE;
+    'C':GlyphBits:=$3923; 'D':GlyphBits:=$6B6E;
+    'E':GlyphBits:=$79A7; 'F':GlyphBits:=$79A4;
+    'G':GlyphBits:=$396B; 'H':GlyphBits:=$5BED;
+    'I':GlyphBits:=$7497; 'J':GlyphBits:=$126A;
+    'K':GlyphBits:=$5BAD; 'L':GlyphBits:=$4927;
+    'M':GlyphBits:=$5FED; 'N':GlyphBits:=$5FFD;
+    'O':GlyphBits:=$2B6A; 'P':GlyphBits:=$6BA4;
+    'Q':GlyphBits:=$2B7B; 'R':GlyphBits:=$6BAD;
+    'S':GlyphBits:=$388E; 'T':GlyphBits:=$7492;
+    'U':GlyphBits:=$5B6F; 'V':GlyphBits:=$5B6A;
+    'W':GlyphBits:=$5BFD; 'X':GlyphBits:=$5AAD;
+    'Y':GlyphBits:=$5A92; 'Z':GlyphBits:=$72A7;
+    '0':GlyphBits:=$7B6F; '1':GlyphBits:=$2C97;
+    '2':GlyphBits:=$62A7; '3':GlyphBits:=$628E;
+    '4':GlyphBits:=$5BC9; '5':GlyphBits:=$798E;
+    '6':GlyphBits:=$39EF; '7':GlyphBits:=$7292;
+    '8':GlyphBits:=$7BEF; '9':GlyphBits:=$7BCE;
+    ':':GlyphBits:=$0410; '-':GlyphBits:=$01C0;
+    '+':GlyphBits:=$05D0; '=':GlyphBits:=$0E38;
+    '/':GlyphBits:=$12A4; '.':GlyphBits:=$0002;
+    '[':GlyphBits:=$6926; ']':GlyphBits:=$324B;
+    '<':GlyphBits:=$1511; '>':GlyphBits:=$4454;
+    '^':GlyphBits:=$2A00; '?':GlyphBits:=$6282;
+    else GlyphBits:=0;
   end;
 end;
 
 procedure SmallCharOpaque(X,Y:Integer; C:Char; FG,BG:Byte);
-var G:String[15]; Row:array[0..1] of Byte; I,J:Integer; V:Byte;
+var G:Word; Row:array[0..1] of Byte; I,J:Integer; V:Byte;
 begin
   {Four-pixel cell, even X. Replace each complete row without blanking first.}
-  G:=Glyph(C);
+  G:=GlyphBits(C);
   for J:=0 to 4 do
   begin
     Row[0]:=(BG shl 4) or BG; Row[1]:=Row[0];
     for I:=0 to 2 do
     begin
-      if G[J*3+I+1]='1' then V:=FG else V:=BG;
+      if (G and $4000)<>0 then V:=FG else V:=BG;
       if Odd(I) then Row[I div 2]:=(Row[I div 2] and $F0) or V
       else Row[I div 2]:=(Row[I div 2] and 15) or (V shl 4);
+      G:=G shl 1;
     end;
     WriteVideoBytes(X div 2,Y+J,2,Row);
   end;
 end;
 
 procedure SmallText(X,Y:Integer; const S:String; C:Byte);
-var I,J:Integer; G:String[15];
+var I,J:Integer; G:Word;
 begin
   for I:=1 to Length(S) do
   begin
-    G:=Glyph(S[I]);
-    for J:=0 to 14 do if G[J+1]='1' then PutPixel(X+J mod 3,Y+J div 3,C);
+    G:=GlyphBits(S[I]);
+    for J:=0 to 14 do
+    begin
+      if (G and $4000)<>0 then PutPixel(X+J mod 3,Y+J div 3,C);
+      G:=G shl 1;
+    end;
     Inc(X,4); if X>319 then Exit;
   end;
 end;
