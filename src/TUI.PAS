@@ -272,7 +272,7 @@ begin
     SmallText(89+I*17,164,Num(Z)+'X',4); Z:=Z*2 end;
   for I:=0 to 3 do begin
     Button(156+I*14,161,13,10,False);
-    case I of 0:S:='<'; 1:S:='>'; 2:S:='^'; 3:S:='V' end;
+    case I of 0:S:='<'; 1:S:='>'; 2:S:='^'; 3:S:='!' end;
     SmallText(161+I*14,164,S,4);
   end;
   FillBox(218,135,318,150,1); Box(218,135,318,150,9);
