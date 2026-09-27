@@ -278,3 +278,10 @@ memory-chain verification. The production executable is 69,782 bytes: 61,758
 code bytes and 7,924 initialized-data bytes, leaving 3,778 bytes of headroom
 below the 65,536-byte small-model code-segment ceiling. `out/M9.EXE` preserves
 this optimized M9 checkpoint; `out/PP16.EXE` remains the current working build.
+
+M9 rendering follow-up: the 1x canvas builder now copies each packed source row
+into its odd-aligned canvas row instead of decoding 64 pixels one at a time.
+Higher zoom modes continue using the existing scale/grid-aware path. The full
+M1-M9 suite passed at 3,000 cycles/ms in `obj/pp16-20260927-130614-1b45a2`.
+The current production build is 69,878 bytes (61,845 code bytes and 7,924
+initialized-data bytes), leaving 3,691 code bytes below the small-model limit.

@@ -193,7 +193,7 @@ begin
 end;
 
 procedure DrawCanvas;
-var X,Y,C,J,R,A,H:Integer; Col,PairColor,Edge:Byte;
+var X,Y,C,J,R,A,H:Integer; Col,PairColor,Edge:Byte; Source:TDocRow;
     Row,GridRow:array[0..64] of Byte;
 begin
   {Build complete packed rows before touching video RAM. X=85 is odd, so
@@ -205,14 +205,18 @@ begin
   begin
     Move(GridRow,Row,SizeOf(Row));
     if PanY+Y div Zoom<64 then
-      for X:=0 to C-1 do
+      if Zoom=1 then
       begin
-        Col:=DocPixel(PanX+X,PanY+Y div Zoom);
-        if Zoom=1 then begin
-          A:=(X+1) div 2;
-          if Odd(X+1) then Row[A]:=(Row[A] and $F0) or Col
-          else Row[A]:=(Row[A] and 15) or (Col shl 4);
-        end else begin
+        {At 1x, the first 64 canvas pixels are a direct odd-aligned packed
+         document row. Leave the surrounding canvas/background nibbles alone.}
+        DocReadRow(PanY+Y,Source);
+        Row[0]:=(Row[0] and $F0) or (Source[0] shr 4);
+        for J:=1 to 31 do Row[J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
+        Row[32]:=(Row[32] and $0F) or ((Source[31] and $0F) shl 4);
+      end else
+        for X:=0 to C-1 do
+        begin
+          Col:=DocPixel(PanX+X,PanY+Y div Zoom);
           A:=(X*Zoom+1) div 2; H:=Zoom div 2;
           PairColor:=Col or (Col shl 4);
           Row[A]:=(Row[A] and $F0) or Col;
@@ -220,7 +224,6 @@ begin
           if GridVisible and (Zoom>=4) then Edge:=8 else Edge:=Col;
           Row[A+H]:=(Row[A+H] and 15) or (Edge shl 4);
         end;
-      end;
     for R:=0 to Zoom-1 do
       if GridVisible and (Zoom>=4) and (R=Zoom-1) then
         Move(GridRow,CanvasFrame[Y+R],SizeOf(Row))

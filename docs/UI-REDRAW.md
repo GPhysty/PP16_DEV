@@ -33,6 +33,9 @@ not the editor's document or undo semantics.
   row into the preview's 33 odd-aligned video bytes. This replaces 4,096
   individual pixel writes with 64 row writes; incremental preview updates are
   unchanged.
+- At 1x zoom, full canvas construction likewise packs each visible document
+  row directly into its odd-aligned canvas buffer. Higher zoom levels retain
+  their scale/grid-aware renderer.
 
 `/PERF` measures ten repeatable interaction cases using BIOS ticks. File I/O,
 initialization and full-reference redraws are outside the measured intervals.
