@@ -39,15 +39,24 @@ begin
 end;
 
 procedure ClipboardCopy(X,Y,W,H:Integer);
-var I,J:Integer;
+var I,J,Bytes:Integer; Source:TDocRow;
 begin
   ClearClipboard;
   if (X<0) or (Y<0) or (W<1) or (H<1) or
      (X+W>DocWidth) or (Y+H>DocHeight) then Exit;
   ClipboardWidth:=W; ClipboardHeight:=H;
   FillChar(ClipPixels,SizeOf(ClipPixels),0);
-  for J:=0 to H-1 do for I:=0 to W-1 do
-    ClipSetPixel(I,J,DocPixel(X+I,Y+J));
+  if not Odd(X) and not Odd(W) then
+  begin
+    Bytes:=W div 2;
+    for J:=0 to H-1 do
+    begin
+      DocReadRow(Y+J,Source);
+      Move(Source[X div 2],ClipPixels[J*Bytes],Bytes);
+    end;
+  end else
+    for J:=0 to H-1 do for I:=0 to W-1 do
+      ClipSetPixel(I,J,DocPixel(X+I,Y+J));
   ClipboardValid:=True;
 end;
 
