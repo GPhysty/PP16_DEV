@@ -3,8 +3,10 @@ unit TDoc;
 interface
 const DocWidth=64; DocHeight=64; DocBytes=2048;
 type TDocPixels=array[0..DocBytes-1] of Byte;
+     TDocRow=array[0..31] of Byte;
 var DocDirty:Boolean;
 procedure DocCopy(var Data:TDocPixels);
+procedure DocReadRow(Y:Integer; var Row:TDocRow);
 procedure DocReplace(const Data:TDocPixels);
 procedure DocSaved;
 function DocCanUndo:Boolean;
@@ -54,6 +56,12 @@ begin DocCanUndo:=UndoValid and not ActionActive end;
 
 procedure DocCopy(var Data:TDocPixels);
 begin Move(Pixels,Data,DocBytes) end;
+
+procedure DocReadRow(Y:Integer; var Row:TDocRow);
+begin
+  if (Y<0) or (Y>=DocHeight) then FillChar(Row,SizeOf(Row),0)
+  else Move(Pixels[Word(Y)*32],Row,SizeOf(Row));
+end;
 
 procedure DocReplace(const Data:TDocPixels);
 begin Move(Data,Pixels,DocBytes); ResetDirty; MarkAll end;

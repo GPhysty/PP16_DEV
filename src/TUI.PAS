@@ -236,7 +236,7 @@ begin
 end;
 
 procedure Preview;
-var X,Y,X1,Y1,X2,Y2:Integer;
+var X,Y,X1,Y1,X2,Y2,I:Integer; Source:TDocRow; Row:array[0..32] of Byte;
 
   procedure RestorePixel(X,Y:Integer);
   var C:Byte;
@@ -254,7 +254,16 @@ begin
   end else begin
   SmallText(219,20,'IMAGE:64X64',15); Box(218,28,318,129,7);
   FillBox(219,29,317,128,0);
-  for Y:=0 to 63 do for X:=0 to 63 do PutPixel(237+X,46+Y,DocPixel(X,Y));
+  {The 1:1 image begins on an odd pixel. Pack each 64-pixel document row
+   into its 33 affected video bytes instead of issuing 64 PutPixel calls.}
+  for Y:=0 to 63 do
+  begin
+    DocReadRow(Y,Source);
+    Row[0]:=Source[0] shr 4;
+    for I:=1 to 31 do Row[I]:=((Source[I-1] and $0F) shl 4) or (Source[I] shr 4);
+    Row[32]:=(Source[31] and $0F) shl 4;
+    WriteVideoBytes(118,46+Y,33,Row);
+  end;
   end;
   {Viewport outline belongs to UI, never document pixels.}
   X1:=237+PanX; Y1:=46+PanY;
