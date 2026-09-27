@@ -24,6 +24,7 @@ function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
 function DocPixel(X,Y:Integer):Byte;
 function DocChecksum:DWord;
 implementation
+uses TRaster;
 var Pixels:array[0..DocBytes-1] of Byte;
     UndoPixels,PendingPixels:array[0..DocBytes-1] of Byte;
     UndoValid,UndoDirty,ActionActive,ActionChanged,PendingDirty:Boolean;
@@ -164,60 +165,26 @@ begin
   DocSetPixel:=True;
 end;
 
-procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
-var DX,DY,SX,SY,E,E2:Integer;
+procedure PlotDoc(X,Y,C:Integer);
 begin
-  {Endpoints must be document coordinates. The input layer splits strokes
-   when they leave the canvas instead of connecting through hidden pixels.}
+  DocSetPixel(X,Y,C);
+end;
+
+procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
+begin
   if (X1<0) or (X1>63) or (X2<0) or (X2>63) or
      (Y1<0) or (Y1>63) or (Y2<0) or (Y2>63) then Exit;
-  DX:=Abs(X2-X1); DY:=-Abs(Y2-Y1);
-  if X1<X2 then SX:=1 else SX:=-1;
-  if Y1<Y2 then SY:=1 else SY:=-1;
-  E:=DX+DY;
-  repeat
-    DocSetPixel(X1,Y1,C);
-    if (X1=X2) and (Y1=Y2) then Break;
-    E2:=2*E;
-    if E2>=DY then begin E:=E+DY; X1:=X1+SX end;
-    if E2<=DX then begin E:=E+DX; Y1:=Y1+SY end;
-  until False;
+  RasterLine(X1,Y1,X2,Y2,C,PlotDoc);
 end;
 
 procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
-var Side,SX,SY,Limit:Integer;
 begin
-  {The press point is the first corner. The drag direction chooses the
-   opposing corner; the longest drag component gives a true square.}
-  Side:=Abs(X2-X1); if Abs(Y2-Y1)>Side then Side:=Abs(Y2-Y1);
-  if X2<X1 then SX:=-1 else SX:=1;
-  if Y2<Y1 then SY:=-1 else SY:=1;
-  if SX>0 then Limit:=63-X1 else Limit:=X1;
-  if Side>Limit then Side:=Limit;
-  if SY>0 then Limit:=63-Y1 else Limit:=Y1;
-  if Side>Limit then Side:=Limit;
-  X2:=X1+SX*Side; Y2:=Y1+SY*Side;
-  DocLine(X1,Y1,X2,Y1,C); DocLine(X2,Y1,X2,Y2,C);
-  DocLine(X2,Y2,X1,Y2,C); DocLine(X1,Y2,X1,Y1,C);
+  RasterSquare(X1,Y1,X2,Y2,C,PlotDoc);
 end;
 
 procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
-var R,X,Y,D:Integer;
 begin
-  {The press point is the centre. A diagonal drag uses its farther axis as
-   the radius, keeping the result circular on the square-pixel canvas.}
-  R:=Abs(X2-X1); if Abs(Y2-Y1)>R then R:=Abs(Y2-Y1);
-  X:=R; Y:=0; D:=1-R;
-  while X>=Y do
-  begin
-    DocSetPixel(X1+X,Y1+Y,C); DocSetPixel(X1+Y,Y1+X,C);
-    DocSetPixel(X1-Y,Y1+X,C); DocSetPixel(X1-X,Y1+Y,C);
-    DocSetPixel(X1-X,Y1-Y,C); DocSetPixel(X1-Y,Y1-X,C);
-    DocSetPixel(X1+Y,Y1-X,C); DocSetPixel(X1+X,Y1-Y,C);
-    Inc(Y);
-    if D<0 then D:=D+2*Y+1
-    else begin Dec(X); D:=D+2*(Y-X)+1 end;
-  end;
+  RasterCircle(X1,Y1,X2,Y2,C,PlotDoc);
 end;
 
 procedure FillPush(P:Word);
