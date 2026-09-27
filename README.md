@@ -19,9 +19,10 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   and is one undoable action.
 - **Select** (top row, first icon): drag an inclusive rectangle. Its border is
   an overlay only. **Ctrl+C** copies it; **Ctrl+X** copies then clears it to the
-  background color as one undoable action. **Ctrl+V** enters opaque Paste mode:
-  drag to place the canvas-only candidate, release to commit, or Escape to
-  cancel. Paste clips at the image edge and is one undoable action.
+  background color as one undoable action. **Ctrl+V** opens an opaque floating
+  Paste outline centered in the view: move it with the mouse or arrows, then
+  left-click or press Enter to commit; Escape cancels. Paste clips at the image
+  edge and is one undoable action.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan

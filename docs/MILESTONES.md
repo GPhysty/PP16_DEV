@@ -241,16 +241,19 @@ New/Open for the current session and is never saved in `.P16`.
 
 Copy is document-neutral. Cut copies then clears the selection to the current
 background color as one undoable action. Paste is opaque: Ctrl+V or Edit > Paste
-enters a canvas-only placement preview, release commits one clipped action, and
-Escape cancels without replacing an earlier undo. Ctrl+C and Ctrl+X provide Copy
-and Cut; menu availability follows selection, clipboard and undo state.
+opens a floating outline centered in the visible canvas. Mouse movement and the
+arrow keys move it; left click or Enter commits one clipped action; Escape
+cancels without replacing an earlier undo. Each move restores and redraws only
+the outline, rather than the full canvas or clipboard pixels. Ctrl+C and Ctrl+X
+provide Copy and Cut; menu availability follows selection, clipboard and undo
+state.
 
 The focused M9 harness passed at 3,000 cycles/ms in
-`obj/pp16-20260926-065644-6b754c`. The full M1-M9 suite passed at 3,000
-cycles/ms in `obj/pp16-20260926-065702-009e1b`, including file recovery,
+`obj/pp16-20260926-091226-732e8a`. The full M1-M9 suite passed at 3,000
+cycles/ms in `obj/pp16-20260926-091250-98e9ee`, including file recovery,
 missing-mouse/wrong-video profiles, independent file verification and exact DOS
-memory-chain comparisons. Production EXE: 72,614 bytes; code: 64,022 bytes;
-initialized data: 8,484 bytes; initial near heap: 7,850 bytes. No EMS/XMS
+memory-chain comparisons. Production EXE: 73,208 bytes; code: 64,600 bytes;
+initialized data: 8,502 bytes; initial near heap: 7,826 bytes. No EMS/XMS
 requirement was added. See [M9 behavior and checks](M9-CLIPBOARD.md).
 
 Next: live interaction acceptance of selection/clipboard behavior on DOSBox-X

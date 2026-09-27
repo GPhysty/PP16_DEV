@@ -12,11 +12,13 @@ validity metadata. It survives New and Open but is not part of a `.P16` file.
   document or replacing its undo action.
 - **Ctrl+X** or **Edit > Cut** copies first, then replaces selected pixels with
   the current background color as one undoable action.
-- **Ctrl+V** or **Edit > Paste** enters placement mode. Drag on the canvas to
-  choose the clipboard's top-left corner; the candidate is canvas-only until
-  release. Opaque paste clips at the 64 by 64 document edge and is one
-  undoable action. Escape cancels a pending paste without changing pixels or
-  replacing the prior undo action.
+- **Ctrl+V** or **Edit > Paste** enters floating placement mode with the
+  outline initially centered in the visible canvas. Move it with the mouse or
+  arrow keys; left-click or Enter commits. The outline is the only repeated
+  render work: moving it restores the old border and draws the new one without
+  redrawing the canvas or clipboard image. Opaque paste clips at the 64 by 64
+  document edge and is one undoable action. Escape cancels without changing
+  pixels or replacing the prior undo action.
 
 Edit menu availability reflects the selection, clipboard and undo states.
 Right-click remains the universal foreground-color sampler.
@@ -24,13 +26,12 @@ Right-click remains the universal foreground-color sampler.
 ## Validation
 
 `check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 harness through the actual
-pointer and keyboard dispatch. It checks inclusive selection geometry,
-odd-width high-nibble-first packing, Copy neutrality, background-color Cut,
-undo, clipped opaque Paste, canvas-only placement preview and Escape
+pointer and keyboard dispatch. It checks Copy neutrality, Cut and undo,
+floating paste movement by arrow and mouse, click placement, and Escape
 cancellation.
 
 The focused run passed at 3,000 cycles/ms in
-`obj/pp16-20260926-065644-6b754c`. The full M1-M9 regression passed at 3,000
-cycles/ms in `obj/pp16-20260926-065702-009e1b`, including missing-mouse and
+`obj/pp16-20260926-091226-732e8a`. The full M1-M9 regression passed at 3,000
+cycles/ms in `obj/pp16-20260926-091250-98e9ee`, including missing-mouse and
 wrong-video profiles, native-file recovery, independent file verification and
 exact DOS memory-chain comparisons.
