@@ -265,15 +265,34 @@ begin
 end;
 
 procedure Navigation;
-var I,Z:Integer; S:String[2];
+var I,Z:Integer;
+
+  procedure Triangle(X,Y,Direction:Integer);
+  var PX,PY,Half:Integer;
+  begin
+    for PY:=0 to 6 do for PX:=0 to 6 do
+    begin
+      case Direction of
+        0:Half:=(PX+1) div 2;
+        1:Half:=(7-PX) div 2;
+        2:Half:=(PY+1) div 2;
+        3:Half:=(7-PY) div 2;
+      end;
+      if Direction<2 then
+      begin
+        if (PY>=3-Half) and (PY<=3+Half) then PutPixel(X+PX,Y+PY,4);
+      end else
+        if (PX>=3-Half) and (PX<=3+Half) then PutPixel(X+PX,Y+PY,4);
+    end;
+  end;
+
 begin
   Z:=1;
   for I:=0 to 3 do begin Button(85+I*17,161,16,10,Zoom=Z);
     SmallText(89+I*17,164,Num(Z)+'X',4); Z:=Z*2 end;
   for I:=0 to 3 do begin
     Button(156+I*14,161,13,10,False);
-    case I of 0:S:='<'; 1:S:='>'; 2:S:='^'; 3:S:='!' end;
-    SmallText(161+I*14,164,S,4);
+    Triangle(159+I*14,162,I);
   end;
   FillBox(218,135,318,150,1); Box(218,135,318,150,9);
   SmallText(223,141,'NO',15); Button(240,139,10,9,False); SmallText(243,141,'-',8);
