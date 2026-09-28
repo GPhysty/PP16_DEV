@@ -7,9 +7,9 @@ retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
 
-Current M10-start build: **67,478-byte EXE**, with **60,604 code bytes** and
+Current M10-start build: **67,494-byte EXE**, with **60,621 code bytes** and
 6,772 initialized-data bytes. It remains within the 64 KB small-model code
-segment (4,932 bytes of production code headroom). The current checkpoint uses
+segment (4,915 bytes of production code headroom). The current checkpoint uses
 FPC `-O1 -Os`, packed 3x5 font glyphs, shared shape rasterizers, incremental
 shape previews, packed-row image-preview drawing, and packed-row clipboard
 copy for aligned selections. It omits the nonfunctional single-image number and

@@ -250,18 +250,20 @@ begin
     WriteVideoBytes(118,ImagePreviewY+Y,32,Source);
   end;
   end;
-  {Viewport outline belongs to UI, never document pixels.}
-  X1:=ImagePreviewX+PanX; Y1:=ImagePreviewY+PanY;
-  X2:=X1+VisibleCells-1; Y2:=Y1+VisibleCells-1;
-  if X2>=ImagePreviewX+64 then X2:=ImagePreviewX+63;
-  if Y2>=ImagePreviewY+64 then Y2:=ImagePreviewY+63;
-  Box(X1-1,Y1-1,X2+1,Y2+1,8);
-  {At 1x, and when panned to an edge, the viewport meets the panel frame.
-   Restore the fixed frame last so outline cleanup can never leave a wall
-   black; the inner portion of the viewport remains visible at higher zoom.}
+  {The complete image is visible at 1x and 2x, so only 4x/8x need a viewport
+   indicator. The fixed frame is always painted last after temporary cleanup.}
+  if Zoom>=4 then
+  begin
+    X1:=ImagePreviewX+PanX; Y1:=ImagePreviewY+PanY;
+    X2:=X1+VisibleCells-1; Y2:=Y1+VisibleCells-1;
+    if X2>=ImagePreviewX+64 then X2:=ImagePreviewX+63;
+    if Y2>=ImagePreviewY+64 then Y2:=ImagePreviewY+63;
+    Box(X1-1,Y1-1,X2+1,Y2+1,8);
+    PreviewX1:=X1-1; PreviewY1:=Y1-1; PreviewX2:=X2+1; PreviewY2:=Y2+1;
+    PreviewValid:=True;
+  end
+  else PreviewValid:=False;
   Box(235,28,300,94,7);
-  PreviewX1:=X1-1; PreviewY1:=Y1-1; PreviewX2:=X2+1; PreviewY2:=Y2+1;
-  PreviewValid:=True;
 end;
 
 procedure ClipboardPanel;
@@ -1241,10 +1243,12 @@ begin
   HandleClick(24,21,1); if SelectedTool<>0 then Inc(F);
   if DocChecksum<>Before then Inc(F);
   InitUI; DrawUI;
-  for I:=0 to 2 do
+  for I:=0 to 3 do
   begin
-    case I of 0:SetZoom(1); 1:SetZoom(4); 2:SetZoom(8) end;
+    case I of 0:SetZoom(1); 1:SetZoom(2); 2:SetZoom(4); 3:SetZoom(8) end;
     RedrawView; CheckPreviewFrames;
+    if (Zoom<4) and PreviewValid then Inc(F);
+    if (Zoom>=4) and not PreviewValid then Inc(F);
   end;
   ViewChecks:=F;
 end;
