@@ -286,7 +286,7 @@ begin
     begin
       ShowReferenceMenu(0); DumpPage('M3FILE.BIN');
       ShowReferenceMenu(2); DumpPage('M3VIEW.BIN');
-      ShowReferenceMenu(7); DumpPage('M3UTIL.BIN');
+      ShowReferenceMenu(3); DumpPage('M3ACTION.BIN');
     end;
     {$endif}
     K:=27;

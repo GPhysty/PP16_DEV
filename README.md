@@ -1,14 +1,15 @@
 # PP16 â€” Tandy 1000 HX editor project
 
-Current build: **M9 with native Save/Open, basic shape tools, bucket fill and
-selection/clipboard editing**,
+Current working build: **M9 with native Save/Open, basic shape tools, bucket
+fill and selection/clipboard editing**, with the M10 sprite-focused interface
+cleanup underway,
 retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
 
-Current optimized M9 build: **68,988-byte EXE**, with **61,416 code bytes**
-and 7,466 initialized-data bytes. It remains within the 64 KB small-model code
-segment (4,120 bytes of production code headroom). The current checkpoint uses
+Current M10-start build: **67,478-byte EXE**, with **60,604 code bytes** and
+6,772 initialized-data bytes. It remains within the 64 KB small-model code
+segment (4,932 bytes of production code headroom). The current checkpoint uses
 FPC `-O1 -Os`, packed 3x5 font glyphs, shared shape rasterizers, incremental
 shape previews, packed-row image-preview drawing, and packed-row clipboard
 copy for aligned selections. It omits the nonfunctional single-image number and
@@ -32,6 +33,9 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   Paste outline centered in the view: move it with the mouse or arrows, then
   left-click or press Enter to commit; Escape cancels. Paste clips at the image
   edge and is one undoable action.
+- **Clipboard** (top row, second icon) or its right-hand panel: begin placement
+  of the current clipboard image. The panel shows the clipboard at actual size
+  and its dimensions; the Select label shows the current selection dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
@@ -61,7 +65,8 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   names. Temporary files from failed saves stay there too.
 
 Changes update the canvas and actual-size preview. The title and UNSAVED label
-show that image pixels changed. Other tools and special effects remain previews.
+show that image pixels changed. PP16 deliberately omits image-wide special
+effects: frame-to-frame continuity belongs to future animation-aware tools.
 
 DOSBox-X's integrated DOS supplies the mouse driver; no upload/install is
 needed. An actual DOS boot or the physical HX needs its own compatible driver.
@@ -216,13 +221,8 @@ type and `fpctoolkit.env.PP` setting used here.
 M3 layout and behavior are documented in [M3-INTERFACE.md](docs/M3-INTERFACE.md).
 `out/M2.EXE` preserves the accepted mouse checkpoint; `PP16 /M2` also runs it.
 
-Toolbar order: Cut, Utilities, Bucket Fill, Brush, Eraser, Circle, Square, Line.
-Select **Utilities**, then click the effect name below the icons for its
-9-item dropdown. Click an entry or drag down and release; outside clicks
-cancel. The selected effect is a preview choice only; effects do not yet edit
-pixels. The fixed 16-colour build deliberately omits palette-dependent
-Brightness/Darkness/Tint/Grey and XOR effects until a defined colour-mapping
-policy exists. The earlier M3 dropdown screenshot is retained as an archival
-reference and shows the superseded 14-item selector.
+The M3 Utilities dropdown described in the historical layout material has been
+removed from the current editor. Its toolbar position is now Clipboard; the
+retained M3 screenshot is archival only.
 
 [M4 behavior and tests](docs/M4-DRAWING.md). `out/M3.EXE` preserves the passing layout build.

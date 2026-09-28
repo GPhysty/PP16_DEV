@@ -318,3 +318,31 @@ pan controls and preview navigation remain. The full M1-M9 suite passed at
 3,000 cycles/ms in `obj/pp16-20260927-135901-938d35`. Production build:
 68,988 bytes (61,416 code bytes and 7,466 initialized-data bytes), leaving
 4,120 bytes of code headroom.
+
+## M10 start - sprite-focused clipboard layout
+
+The nonfunctional Utilities selector and its Action-menu placeholders were
+removed. Image-wide effects are a poor fit for independent sprite frames:
+they cannot preserve deliberate pixel continuity across an animation. The
+former toolbar slot is now a non-selecting Clipboard control that begins the
+existing Paste placement operation. The right column now holds compact,
+actual-size Image and Clipboard previews; the clipboard panel shows dimensions
+and also begins Paste. The colour controls remain unchanged. When Select is
+active, its label shows the current selection dimensions.
+
+The M10-start full M1-M9 regression passed at 3,000 cycles/ms in
+`obj/pp16-20260927-144955-427deb`. Production build: 67,718 bytes (60,837 code
+bytes and 6,772 initialized-data bytes), leaving 4,699 code bytes. Transparent
+paste, Paste Behind, and persistent clipboard files remain the next, separate
+clipboard work; this entry does not claim them as implemented.
+
+M10 preview follow-up: moving the Image preview to an even X coordinate left a
+stale 33-byte packed-row write, which erased its right panel edge. It now copies
+the exact 32-byte document row and preserves the border. A further viewport
+restoration fix redraws the fixed Image frame after its temporary outline: at
+1x that outline shares the panel's top, left and right edges, so restoring it
+to image pixels previously erased three walls on a later zoom change. The view
+harness checks all four Image and Clipboard frame edges at 1x, 4x and 8x. The
+full M1-M9 regression passed at 3,000 cycles/ms in
+`obj/pp16-20260927-201235-639031`. Production build: 67,478 bytes (60,604 code
+bytes and 6,772 initialized-data bytes), leaving 4,932 code bytes.

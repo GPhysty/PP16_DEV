@@ -35,7 +35,7 @@ else:
         assert pixels[(192+y)*320+160] == 15-y
 if len(sys.argv) > 3 and sys.argv[3] == 'drawing':
     assert pixels[125*320+93] == 15  # New stroke in the zoomed canvas.
-    assert pixels[94*320+241] == 15  # Same document pixel in the 1:1 preview.
+    assert pixels[77*320+240] == 15  # Same document pixel in the 1:1 preview.
 palette = bytes.fromhex(
     "000000 0000aa 00aa00 00aaaa aa0000 aa00aa aa5500 aaaaaa "
     "555555 5555ff 55ff55 55ffff ff5555 ff55ff ffff55 ffffff")

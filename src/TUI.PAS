@@ -2,7 +2,7 @@ unit TUI;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
 uses TMouse;
-var ForeColor,BackColor:Byte; SelectedTool,SelectedUtility:Integer;
+var ForeColor,BackColor:Byte; SelectedTool:Integer;
 procedure InitUI;
 procedure DrawUI;
 procedure ShowReferenceMenu(M:Integer);
@@ -22,22 +22,10 @@ implementation
 uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
-      ('SELECT','UTILITIES','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
-      UtilityNames:array[0..8] of String[6]=
-      ('FUR','MIX','SOFT','UNZAG','HOLLOW','TILE','SWEEP','SWAP','EDGE');
-      UtilityHelp:array[0..8] of String[65]=(
-       'FUR: MAKE OBJECT EDGES IRREGULAR - PREVIEW ONLY',
-       'MIX: RANDOMLY SWAP PIXEL POSITIONS - PREVIEW ONLY',
-       'SOFT: SOFTEN ALL EDGES - PREVIEW ONLY',
-       'UNZAG: SMOOTH JAGGED EDGES - PREVIEW ONLY',
-       'HOLLOW: TURN SOLID AREAS INTO OUTLINES - PREVIEW ONLY',
-       'TILE: REPEAT THE CLIPBOARD IMAGE - PREVIEW ONLY',
-       'SWEEP: CLEAN UP ISOLATED PIXELS - PREVIEW ONLY',
-       'SWAP: REPLACE CURRENT WITH SECONDARY COLOR - PREVIEW ONLY',
-       'EDGE: ADD A ONE PIXEL OUTLINE - PREVIEW ONLY');
+      ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
       ToolIcons:array[0..7,0..13] of String[14]=(
        ('.FF........FF.','..F8......8F..','..F88....88F..','...F88..88F...','....F8888F....','.....F88F.....','......88......','.....2882.....','..2222..2222..','.2FF22..22FF2.','.2F..2..2..F2.','.2F..2..2..F2.','..222....222..','..............'),
-       ('........8..8..','.44.....8..8..','.4C4....8888..','..4C4....88...','...4C4..88....','....4C488.....','.....488......','.....884......','....88.C4.....','...88...C4....','..88.....C44..','.888......444.','.8F8..........','..8...........'),
+       ('..............','...000000.....','..0FFFFFF0....','..0F....F0....','..0F.00.F0....','..0F.00.F0....','..0F....F0....','..0FFFFFF0....','...000000.....','......00......','.....0FF0.....','.....0FF0.....','......00......','..............'),
        ('.....000......','....0...0.....','...0.....0....','....00000.....','...0777780....','..07FFFF780...','.07FFFFF7800..','.078FFF780.C0.','..078F780.CC0.','...07880.CCC0.','....000..CCC0.','........0CCC0.','......00CCCC00','.....0CCCCCCC0'),
        ('..........66..','.........6E6..','........6E6...','.......6E6....','......6E6.....','.....6E6......','....788.......','...7F88.......','..0008........','.04440........','044CC0........','04CC00........','0CCC0.........','.000..........'),
        ('..............','......0000....','.....0DDDD0...','....0DDDDDD0..','...0DDDDDDD50.','..0DDDDDDD550.','.0DDDDDDD5550.','0F7DDDDD5550..','0FF7DDD5550...','.0FF7D5550....','..0FF7550.....','...0FF50......','....000.......','..............'),
@@ -45,16 +33,17 @@ const ToolNames:array[0..7] of String[12]=
        ('..............','.000000000000.','.000000000000.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.000000000000.','.000000000000.','..............'),
        ('..............','...........00.','..........00..','.........00...','........00....','.......00.....','......00......','.....00.......','....00........','...00.........','..00..........','.00...........','00............','..............'));
       MenuX:array[0..5] of Integer=(4,56,108,160,220,284);
+const ImagePreviewX=236; ImagePreviewY=29;
+      ClipPreviewX=236; ClipPreviewY=113;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
-    UtilityHover:Integer; UtilityDrag,UtilityMoved:Boolean;
     Gesture:Byte; StrokeColor:Byte; StrokeX,StrokeY:Integer;
     ShapeTool:Byte; ShapeX,ShapeY:Integer;
     ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
     PendingCommand:Byte; ConfirmDiscard,PaintedUndo:Boolean;
-    CachedTool,CachedUtility,CachedFore,CachedBack:Integer;
+    CachedTool,CachedFore,CachedBack:Integer;
     PreviewValid:Boolean; PreviewX1,PreviewY1,PreviewX2,PreviewY2:Integer;
     ViewedZoom,ViewedPanX,ViewedPanY:Integer; ViewedGrid:Boolean;
     SavedPopup:TSavedArea; PopupSaved:Boolean;
@@ -141,16 +130,17 @@ begin
     if I=SelectedTool then Box(X+1,Y+1,X+16,Y+16,14);
   end;
   if CachedTool>=0 then
-  begin
-    if (CachedTool=SelectedTool) and (CachedUtility=SelectedUtility) then Exit;
-    ToolFrame(CachedTool); ToolFrame(SelectedTool);
-  end;
+    if CachedTool<>SelectedTool then
+    begin ToolFrame(CachedTool); ToolFrame(SelectedTool) end;
   FillBox(0,62,78,69,1);
-  if SelectedTool=1 then
-  begin Text8(7,62,UtilityNames[SelectedUtility],15); SmallText(62,64,':1',15) end
-  else SmallText(7,64,ToolNames[SelectedTool],15);
+  {$ifdef PP16_CLIP_ENABLED}
+  if (SelectedTool=0) and SelectionValid then
+    SmallText(7,64,'SELECT:'+Num(SelectionW)+'X'+Num(SelectionH),15)
+  else
+  {$endif}
+    SmallText(7,64,ToolNames[SelectedTool],15);
   FillBox(0,71,78,77,0); SmallText(8,72,'SIZE:1',7);
-  CachedTool:=SelectedTool; CachedUtility:=SelectedUtility;
+  CachedTool:=SelectedTool;
 end;
 
 procedure Colors;
@@ -233,14 +223,15 @@ begin
 end;
 
 procedure Preview;
-var X,Y,X1,Y1,X2,Y2,I:Integer; Source:TDocRow; Row:array[0..32] of Byte;
+var X,Y,X1,Y1,X2,Y2:Integer; Source:TDocRow;
 
   procedure RestorePixel(X,Y:Integer);
   var C:Byte;
   begin
     C:=0;
-    if (X>=237) and (X<=300) and (Y>=46) and (Y<=109) then
-      C:=DocPixel(X-237,Y-46);
+    if (X>=ImagePreviewX) and (X<ImagePreviewX+64) and
+       (Y>=ImagePreviewY) and (Y<ImagePreviewY+64) then
+      C:=DocPixel(X-ImagePreviewX,Y-ImagePreviewY);
     PutPixel(X,Y,C);
   end;
 
@@ -249,26 +240,51 @@ begin
     for X:=PreviewX1 to PreviewX2 do begin RestorePixel(X,PreviewY1); RestorePixel(X,PreviewY2) end;
     for Y:=PreviewY1+1 to PreviewY2-1 do begin RestorePixel(PreviewX1,Y); RestorePixel(PreviewX2,Y) end;
   end else begin
-  SmallText(219,20,'IMAGE:64X64',15); Box(218,28,318,129,7);
-  FillBox(219,29,317,128,0);
-  {The 1:1 image begins on an odd pixel. Pack each 64-pixel document row
-   into its 33 affected video bytes instead of issuing 64 PutPixel calls.}
+  SmallText(219,20,'IMAGE:64X64',15); Box(235,28,300,94,7);
+  FillBox(ImagePreviewX,ImagePreviewY,ImagePreviewX+63,ImagePreviewY+63,0);
+  {The 1:1 image begins on an even pixel, exactly matching a packed document
+   row. Copy 32 bytes only: a 33rd byte would overwrite the right panel edge.}
   for Y:=0 to 63 do
   begin
     DocReadRow(Y,Source);
-    Row[0]:=Source[0] shr 4;
-    for I:=1 to 31 do Row[I]:=((Source[I-1] and $0F) shl 4) or (Source[I] shr 4);
-    Row[32]:=(Source[31] and $0F) shl 4;
-    WriteVideoBytes(118,46+Y,33,Row);
+    WriteVideoBytes(118,ImagePreviewY+Y,32,Source);
   end;
   end;
   {Viewport outline belongs to UI, never document pixels.}
-  X1:=237+PanX; Y1:=46+PanY;
+  X1:=ImagePreviewX+PanX; Y1:=ImagePreviewY+PanY;
   X2:=X1+VisibleCells-1; Y2:=Y1+VisibleCells-1;
-  if X2>300 then X2:=300; if Y2>109 then Y2:=109;
+  if X2>=ImagePreviewX+64 then X2:=ImagePreviewX+63;
+  if Y2>=ImagePreviewY+64 then Y2:=ImagePreviewY+63;
   Box(X1-1,Y1-1,X2+1,Y2+1,8);
+  {At 1x, and when panned to an edge, the viewport meets the panel frame.
+   Restore the fixed frame last so outline cleanup can never leave a wall
+   black; the inner portion of the viewport remains visible at higher zoom.}
+  Box(235,28,300,94,7);
   PreviewX1:=X1-1; PreviewY1:=Y1-1; PreviewX2:=X2+1; PreviewY2:=Y2+1;
   PreviewValid:=True;
+end;
+
+procedure ClipboardPanel;
+{$ifdef PP16_CLIP_ENABLED}
+var X,Y:Integer; S:String[12];
+{$endif}
+begin
+  FillBox(218,101,318,190,0);
+  Box(235,112,300,178,7);
+  {$ifdef PP16_CLIP_ENABLED}
+  if ClipboardValid then
+  begin
+    S:='CLIP:'+Num(ClipboardWidth)+'X'+Num(ClipboardHeight);
+    SmallText(219,104,S,15);
+    for Y:=0 to 63 do for X:=0 to 63 do
+      if (X<ClipboardWidth) and (Y<ClipboardHeight) then
+        PutPixel(ClipPreviewX+X,ClipPreviewY+Y,ClipboardPixel(X,Y));
+  end
+  else SmallText(219,104,'CLIP: EMPTY',8);
+  {$else}
+  SmallText(219,104,'CLIP: OFF',8);
+  {$endif}
+  SmallText(219,183,'CLICK: PASTE',7);
 end;
 
 procedure Navigation;
@@ -337,39 +353,9 @@ begin
   StatusValid:=True;
 end;
 
-function UtilityAt(X,Y:Integer):Integer;
-begin
-  UtilityAt:=-1;
-  if (X>=0) and (X<68) and (Y>=70) and (Y<142) then
-    UtilityAt:=(Y-70) div 8;
-end;
-
-procedure UtilityRow(I:Integer);
-var BG,FG:Byte;
-begin
-  if (I<0) or (I>8) then Exit;
-  if I=UtilityHover then begin BG:=15; FG:=1 end else begin BG:=1; FG:=15 end;
-  FillBox(0,70+I*8,67,77+I*8,BG); Text8(7,70+I*8,UtilityNames[I],FG);
-end;
-
-procedure UtilityStatus;
-begin
-  FillBox(0,192,319,199,1);
-  if UtilityHover>=0 then SmallText(3,194,UtilityHelp[UtilityHover],14)
-  else SmallText(3,194,'SELECT SPECIAL EFFECT - EFFECTS NOT ACTIVE',14);
-end;
-
-procedure UtilityPopup;
-var I:Integer;
-begin
-  FillBox(0,62,57,69,15); Text8(7,62,UtilityNames[SelectedUtility],1);
-  for I:=0 to 8 do UtilityRow(I);
-  UtilityStatus;
-end;
-
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
       PopupW:array[0..5] of Integer=(168,152,208,200,176,135);
-      MenuRows:array[0..5] of Integer=(5,9,4,12,0,8);
+      MenuRows:array[0..5] of Integer=(5,9,4,2,0,8);
       Labels:array[0..5,0..15] of String[20]=(
        ('New','Open...','Save','Save As...','Exit',
         '','','','','','','','','','',''),
@@ -378,8 +364,8 @@ const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
        ('Cross-hair On','Highlight On','Grid On','Image as Tile','',
         '','','','','','','',
         '','','',''),
-       ('Clear','Clear to Colour','','Scroll Up','Scroll Down','Scroll Left',
-        'Scroll Right','Rotate 90','Flip Horizontal','Flip Vertical','','Effect:SOFT',
+       ('Clear','Clear to Colour','','','','',
+        '','','','','','',
         '','','',''),
        ('','','','','',
         '','','','','','','','','','',''),
@@ -442,7 +428,6 @@ begin
     SmallText(52,131,'TAB: SELECT  ENTER: OK  ESC: CANCEL',15);
     Exit;
   end;
-  if OpenMenu=7 then begin UtilityPopup; Exit end;
   if OpenMenu=6 then
   begin
     FillBox(52,44,268,133,1); Box(52,44,268,133,9); Box(55,47,265,130,7);
@@ -462,9 +447,7 @@ begin
     if Labels[OpenMenu,I]='' then HSpan(X+4,X+W-5,Y+2,8)
     else begin
       if Enabled(OpenMenu,I) then C:=15 else C:=8;
-      if (OpenMenu=3) and (I=11) then
-        Text8(X+12,Y,'Effect:'+UtilityNames[SelectedUtility],C)
-      else Text8(X+12,Y,Labels[OpenMenu,I],C);
+      Text8(X+12,Y,Labels[OpenMenu,I],C);
       S:=Shortcut(OpenMenu,I);
       if S<>'' then SmallText(X+W-7-Length(S)*4,Y+1,S,C);
       if (OpenMenu=2) and (I=2) and GridVisible then
@@ -482,7 +465,6 @@ begin
     SavedY1:=9; SavedY2:=MenuRowY(OpenMenu,MenuRows[OpenMenu])+4;
   end else case OpenMenu of
     6:begin SavedX1:=52; SavedY1:=44; SavedX2:=268; SavedY2:=133 end;
-    7:begin SavedX1:=0; SavedY1:=62; SavedX2:=78; SavedY2:=141 end;
     8:begin SavedX1:=36; SavedY1:=49; SavedX2:=283; SavedY2:=143 end;
     9:begin SavedX1:=50; SavedY1:=36; SavedX2:=269; SavedY2:=145 end;
   end;
@@ -558,6 +540,7 @@ procedure ShowSelectionOverlay;
 begin
   DrawCanvas;
   if SelectionValid then SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False);
+  Tools;
   PaintedUndo:=DocCanUndo;
 end;
 
@@ -596,12 +579,20 @@ end;
 
 procedure CopySelection;
 begin
-  if SelectionValid then ClipboardCopy(SelectionX,SelectionY,SelectionW,SelectionH);
+  if SelectionValid then
+  begin
+    ClipboardCopy(SelectionX,SelectionY,SelectionW,SelectionH);
+    ClipboardPanel;
+  end;
 end;
 
 procedure CutSelection;
 begin
-  if SelectionValid then ClipboardCut(SelectionX,SelectionY,SelectionW,SelectionH,BackColor);
+  if SelectionValid then
+  begin
+    ClipboardCut(SelectionX,SelectionY,SelectionW,SelectionH,BackColor);
+    ClipboardPanel;
+  end;
 end;
 
 procedure BeginPaste;
@@ -620,14 +611,13 @@ end;
 procedure InitUI;
 begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
   StatusValid:=False; ShiftHeld:=False;
-  CachedTool:=-1; CachedUtility:=-1; CachedFore:=-1; CachedBack:=-1;
+  CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
   Gesture:=0; PointerBlocked:=False; StrokeValid:=False; ShapeValid:=False;
   ShapePreviewVisible:=False;
   PaintedDirty:=False;
   RepaintedCells:=0;
   PendingCommand:=0; ConfirmDiscard:=False; PaintedUndo:=False;
-  SelectedUtility:=2; UtilityHover:=-1; UtilityDrag:=False; UtilityMoved:=False;
   {$ifdef PP16_CLIP_ENABLED}ClearClipboard; ClearSelection;{$endif}
   ExitRequested:=False; SelectedTool:=3; OpenMenu:=-1; HoverDX:=-1; HoverDY:=-1 end;
 
@@ -644,13 +634,13 @@ procedure DrawUI;
 var Y,A,B:Integer;
 begin
   StatusValid:=False;
-  CachedTool:=-1; CachedUtility:=-1; CachedFore:=-1; CachedBack:=-1;
+  CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False;
   FillBox(0,0,319,199,0); FillBox(0,0,319,7,1);
   Text8(4,0,'File',15); Text8(56,0,'Edit',15); Text8(108,0,'View',15);
   Text8(160,0,'Action',15); Text8(284,0,'Help',15);
   Title;
-  Tools; Colors; DrawCanvas; Preview; Navigation; Status(-1,-1);
+  Tools; Colors; DrawCanvas; Preview; ClipboardPanel; Navigation; Status(-1,-1);
   FillBox(0,192,319,199,1);
   SmallText(3,194,'CTRL+S SAVE  CTRL+O OPEN  BKSP UNDO  ESC EXIT',14);
   CapturePopup; Popup;
@@ -686,11 +676,6 @@ begin
   if PopupSaved then
   begin
     RestoreArea(SavedX1,SavedY1,SavedX2,SavedY2,SavedPopup);
-    if Old=7 then begin
-      FillBox(0,192,319,199,1);
-      SmallText(3,194,'CTRL+S SAVE  CTRL+O OPEN  BKSP UNDO  ESC EXIT',14);
-      Tools;
-    end;
   end else DrawUI;
   PopupSaved:=False;
 end;
@@ -703,8 +688,7 @@ end;
 
 procedure ShowReferenceMenu(M:Integer);
 begin
-  if (M<0) or (M>7) then Exit;
-  if M=7 then begin SelectedTool:=1; UtilityHover:=-1 end;
+  if (M<0) or (M>6) then Exit;
   OpenMenu:=M; DrawUI;
 end;
 
@@ -777,12 +761,6 @@ begin
   end;
   if OpenMenu>=0 then
   begin
-    if OpenMenu=7 then
-    begin
-      I:=UtilityAt(X,Y);
-      if (I>=0) and (Button=1) then SelectedUtility:=I;
-      UtilityDrag:=False; ClosePopup; Exit;
-    end;
     if (Y<8) and (Button=1) then
     begin
       I:=0; while (I<5) and (X>=MenuX[I+1]-2) do Inc(I);
@@ -851,42 +829,25 @@ begin
   if Button<>1 then Exit;
   if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
   begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
-  if (SelectedTool=1) and (X>=0) and (X<79) and (Y>=62) and (Y<=69) then
-  begin
-    UtilityHover:=-1; UtilityDrag:=True; UtilityMoved:=False;
-    SetPopup(7); Exit;
-  end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
+  begin BeginPaste; Exit end;
+  {$endif}
   if (X>=2) and (X<78) and (Y>=18) and (Y<56) then
   begin
     if ((X-2) mod 19>=18) or ((Y-18) mod 19>=18) then Exit;
-    SelectedTool:=((Y-18) div 19)*4+(X-2) div 19; Tools; Exit;
+    I:=((Y-18) div 19)*4+(X-2) div 19;
+    if I=1 then
+    begin
+      {$ifdef PP16_CLIP_ENABLED}if Button=1 then BeginPaste;{$endif}
+      Exit;
+    end;
+    SelectedTool:=I; Tools; Exit;
   end;
   if (Y>=161) and (Y<171) then
   begin
     if (X>=85) and (X<153) then
     begin I:=(X-85) div 17; SetZoom(1 shl I); RedrawView end
-  end;
-end;
-
-procedure UtilityMotion(X,Y:Integer; Released:Byte);
-var I,Old:Integer;
-begin
-  if OpenMenu<>7 then Exit;
-  I:=UtilityAt(X,Y);
-  if UtilityDrag and not ((X>=0) and (X<79) and (Y>=62) and (Y<=69)) then
-    UtilityMoved:=True;
-  if I<>UtilityHover then
-  begin
-    Old:=UtilityHover; UtilityHover:=I; UtilityRow(Old); UtilityRow(I); UtilityStatus;
-  end;
-  if UtilityDrag and ((Released and 1)<>0) then
-  begin
-    UtilityDrag:=False;
-    if UtilityMoved then
-    begin
-      if I>=0 then SelectedUtility:=I;
-      ClosePopup;
-    end;
   end;
 end;
 
@@ -915,7 +876,7 @@ begin
       end;
       if (((X=PX1) or (X=PX2)) and (Y>=PY1) and (Y<=PY2)) or
          (((Y=PY1) or (Y=PY2)) and (X>=PX1) and (X<=PX2)) then C:=8;
-      PutPixel(237+X,46+Y,C);
+      PutPixel(ImagePreviewX+X,ImagePreviewY+Y,C);
     end;
   if DocDirty<>PaintedDirty then
   begin
@@ -1001,9 +962,12 @@ procedure ApplyGesture(X,Y:Integer);
 var DX,DY:Integer; C:Byte;
 begin
   if Gesture=3 then begin
-    if X<237 then X:=237; if X>300 then X:=300;
-    if Y<46 then Y:=46; if Y>109 then Y:=109;
-    PanView(X-237-VisibleCells div 2-PanX,Y-46-VisibleCells div 2-PanY);
+    if X<ImagePreviewX then X:=ImagePreviewX;
+    if X>=ImagePreviewX+64 then X:=ImagePreviewX+63;
+    if Y<ImagePreviewY then Y:=ImagePreviewY;
+    if Y>=ImagePreviewY+64 then Y:=ImagePreviewY+63;
+    PanView(X-ImagePreviewX-VisibleCells div 2-PanX,
+            Y-ImagePreviewY-VisibleCells div 2-PanY);
     RedrawView; Exit;
   end;
   if not ScreenToDoc(X,Y,DX,DY) then begin StrokeValid:=False; Exit end;
@@ -1060,7 +1024,8 @@ begin
   if S.Pressed=0 then Exit;
   if S.Buttons=3 then begin PointerBlocked:=True; Exit end;
   if (OpenMenu<0) and ((S.Pressed and 1)<>0) and
-     (S.X>=237) and (S.X<=300) and (S.Y>=46) and (S.Y<=109) then
+     (S.X>=ImagePreviewX) and (S.X<ImagePreviewX+64) and
+     (S.Y>=ImagePreviewY) and (S.Y<ImagePreviewY+64) then
   begin Gesture:=3; ApplyGesture(S.X,S.Y); Exit end;
   if (OpenMenu<0) and ScreenToDoc(S.X,S.Y,DX,DY) then
   begin
@@ -1087,11 +1052,6 @@ begin
       StrokeX:=DX; StrokeY:=DY; ShapeX:=DX; ShapeY:=DY; ShapeValid:=True;
       ShapePreviewVisible:=False;
       DocBeginAction;
-    end
-    else
-    begin
-      FillBox(0,192,319,199,1);
-      SmallText(3,194,'UTILITIES ARE PREVIEWS',14);
     end;
     StrokeValid:=False;
     if Gesture<>0 then ApplyGesture(S.X,S.Y)
@@ -1195,7 +1155,7 @@ begin
     if Changed then
     begin
       ShiftHeld:=(Mem[$40:$17] and 3)<>0;
-      MotionOnly:=(Scan=0) and (S.Buttons=Old.Buttons) and (Gesture=0) and (OpenMenu<>7)
+      MotionOnly:=(Scan=0) and (S.Buttons=Old.Buttons) and (Gesture=0)
         {$ifdef PP16_CLIP_ENABLED}and not PasteMode{$endif};
       if MotionOnly and MouseReady then PointerFeedback(S.X,S.Y)
       else begin
@@ -1205,12 +1165,12 @@ begin
             ((Key in [49,50,52,56]) or (Scan in [62,72,75,77,80]))) or
            (Gesture=3) or ((Scan=0) and (Gesture=0) and
             (((S.X>=85) and (S.X<212) and (S.Y>=161) and (S.Y<171)) or
-             ((S.X>=237) and (S.X<=300) and (S.Y>=46) and (S.Y<=109)))));
+             ((S.X>=ImagePreviewX) and (S.X<ImagePreviewX+64) and
+              (S.Y>=ImagePreviewY) and (S.Y<ImagePreviewY+64)))));
         if not DeferHide then HideCursor;
         KeyInput(Key,Scan,S.Buttons);
         if not ExitRequested then PointerInput(S);
         PaintChanges;
-        UtilityMotion(S.X,S.Y,S.Released);
         if ExitRequested then Quit:=True;
         if MouseReady and not Quit then PointerFeedback(S.X,S.Y)
         else begin
@@ -1228,6 +1188,15 @@ end;
 {$ifdef PP16_VIEW_TEST}
 function ViewChecks:Word;
 var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY:Integer; OK:Boolean; C:Byte;
+
+  procedure CheckPreviewFrames;
+  begin
+    if (GetPixel(235,46)<>7) or (GetPixel(267,28)<>7) or
+       (GetPixel(300,46)<>7) or (GetPixel(267,94)<>7) or
+       (GetPixel(235,130)<>7) or (GetPixel(267,112)<>7) or
+       (GetPixel(300,130)<>7) or (GetPixel(267,178)<>7) then Inc(F);
+  end;
+
 begin
   F:=0; Before:=DocChecksum; Z:=1;
   repeat
@@ -1268,24 +1237,15 @@ begin
   if (Shortcut(1,2)<>'Ctrl+X') or (Shortcut(1,3)<>'Ctrl+C') or
      (Shortcut(1,4)<>'Ctrl+V') then Inc(F);
   HandleClick(125,110,1); HandleClick(125,110,2);
-  {Utilities: click choice, drag choice, cancellation and consumed dismissal.}
-  HandleClick(24,21,1); if SelectedTool<>1 then Inc(F);
-  HandleClick(8,65,1); if OpenMenu<>7 then Inc(F);
-  UtilityMotion(8,65,1); if OpenMenu<>7 then Inc(F);
-  HandleClick(8,87,1); if (SelectedUtility<>2) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1); HandleClick(75,150,1);
-  if (ForeColor<>0) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1); UtilityMotion(8,135,0); UtilityMotion(8,135,1);
-  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1); UtilityMotion(100,110,0); UtilityMotion(100,110,1);
-  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1); HandleClick(8,65,1);
-  if (SelectedUtility<>8) or (OpenMenu<>-1) then Inc(F);
-  HandleClick(8,65,1);
-  for I:=0 to 8 do begin UtilityMotion(8,71+I*8,0); if UtilityHover<>I then Inc(F) end;
-  HandleClick(8,65,1);
+  {The former Utilities tile is now a non-selecting clipboard action.}
+  HandleClick(24,21,1); if SelectedTool<>0 then Inc(F);
   if DocChecksum<>Before then Inc(F);
   InitUI; DrawUI;
+  for I:=0 to 2 do
+  begin
+    case I of 0:SetZoom(1); 1:SetZoom(4); 2:SetZoom(8) end;
+    RedrawView; CheckPreviewFrames;
+  end;
   ViewChecks:=F;
 end;
 {$endif}
@@ -1388,7 +1348,7 @@ begin
   ResetTest;
   SelectedTool:=7; AtDoc(2,2,1); AtDoc(8,5,1);
   Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=15) and
-        (GetPixel(245,51)=0),'shape preview is canvas-only before release');
+        (GetPixel(ImagePreviewX+8,ImagePreviewY+5)=0),'shape preview is canvas-only before release');
   KeyInput(27,1,1);
   Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=0),
         'escape removes shape preview');
@@ -1444,7 +1404,8 @@ begin
   until Z>8;
   ResetTest; DrawUI; RepaintedCells:=0;
   DocSetPixel(10,10,12); PaintChanges;
-  Check((GetPixel(CanvasX+20,CanvasY+20)=12) and (GetPixel(247,56)=12),'live canvas and preview');
+  Check((GetPixel(CanvasX+20,CanvasY+20)=12) and
+        (GetPixel(ImagePreviewX+10,ImagePreviewY+10)=12),'live canvas and preview');
   Check(RepaintedCells=1,'single-pixel dirty repaint');
   PaintChanges; Check(RepaintedCells=1,'idle repaint stays zero');
   DocSetPixel(10,10,12); PaintChanges;
@@ -1543,12 +1504,16 @@ begin
   SetZoom(8); PanView(-64,-64); RedrawView;
   HandleClick(175,164,1); Check(PanX=8,'coarse step follows zoom');
   FillChar(S,SizeOf(S),0);
-  Feed(269,78,1); Check((PanX=24) and (PanY=24),'preview centers viewport');
-  Feed(319,199,1); Check((PanX=48) and (PanY=48),'preview drag clamps bottom right');
+  Feed(ImagePreviewX+32,ImagePreviewY+32,1);
+  Check((PanX=24) and (PanY=24),'preview centers viewport');
+  Feed(ImagePreviewX+63,ImagePreviewY+63,1);
+  Check((PanX=48) and (PanY=48),'preview drag clamps bottom right');
   Feed(0,0,1); Check((PanX=0) and (PanY=0),'preview drag clamps top left');
-  KeyInput(27,1,1); Feed(300,109,1); Feed(300,109,0);
+  KeyInput(27,1,1); Feed(ImagePreviewX+63,ImagePreviewY+63,1);
+  Feed(ImagePreviewX+63,ImagePreviewY+63,0);
   Check((Gesture=0) and (PanX=0) and (PanY=0),'cancel consumes held preview drag');
-  Feed(300,109,1); Feed(269,78,0);
+  Feed(ImagePreviewX+63,ImagePreviewY+63,1);
+  Feed(ImagePreviewX+32,ImagePreviewY+32,0);
   Check((Gesture=0) and (PanX=24) and (PanY=24),'preview includes release position');
   Check((DocChecksum=Before) and not DocDirty and not DocCanUndo,'navigation leaves document intact');
   {Use an independent transparent-text redraw as the numeric-field oracle.}
