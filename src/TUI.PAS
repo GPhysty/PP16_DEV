@@ -342,7 +342,7 @@ begin
   for I:=0 to 3 do if V[I]<>StatusValues[I] then Changed:=True;
   HoverDX:=DX; HoverDY:=DY;
   if not Changed then Exit;
-  if CursorOverlaps(84,174,213,187) then HideCursor;
+  if CursorOverlaps(84,175,213,187) then HideCursor;
   if not StatusValid then begin
     FillBox(84,174,213,187,1);
     SmallText(88,176,'GRID X:',15); SmallText(124,176,' Y:',15);
