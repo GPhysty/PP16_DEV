@@ -25,7 +25,7 @@ const ToolNames:array[0..7] of String[12]=
       ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
       ToolIcons:array[0..7,0..13] of String[14]=(
        ('.FF........FF.','..F8......8F..','..F88....88F..','...F88..88F...','....F8888F....','.....F88F.....','......88......','.....2882.....','..2222..2222..','.2FF22..22FF2.','.2F..2..2..F2.','.2F..2..2..F2.','..222....222..','..............'),
-       ('..............','...000000.....','..0FFFFFF0....','..0F....F0....','..0F.00.F0....','..0F.00.F0....','..0F....F0....','..0FFFFFF0....','...000000.....','......00......','.....0FF0.....','.....0FF0.....','......00......','..............'),
+       ('..............','...........CC.','.......FF8CCC.','......FFF8CC..','.....F87FFF8..','....F77FFFFF..','...F8778F77F..','..F7FF7F8F....','.FF78F77F.....','.FFF788.......','.FFFF77F......','..FFFF........','...FFF........','..............'),
        ('.....000......','....0...0.....','...0.....0....','....00000.....','...0777780....','..07FFFF780...','.07FFFFF7800..','.078FFF780.C0.','..078F780.CC0.','...07880.CCC0.','....000..CCC0.','........0CCC0.','......00CCCC00','.....0CCCCCCC0'),
        ('..........66..','.........6E6..','........6E6...','.......6E6....','......6E6.....','.....6E6......','....788.......','...7F88.......','..0008........','.04440........','044CC0........','04CC00........','0CCC0.........','.000..........'),
        ('..............','......0000....','.....0DDDD0...','....0DDDDDD0..','...0DDDDDDD50.','..0DDDDDDD550.','.0DDDDDDD5550.','0F7DDDDD5550..','0FF7DDD5550...','.0FF7D5550....','..0FF7550.....','...0FF50......','....000.......','..............'),
@@ -335,10 +335,12 @@ begin
   Z:=1;
   for I:=0 to 3 do begin Button(ZoomButtonX+I*ZoomButtonStep,NavigationY,
     ZoomButtonWidth,ZoomButtonHeight,Zoom=Z);
-    SmallText(ZoomButtonX+4+I*ZoomButtonStep,NavigationY+3,Num(Z)+'X',4); Z:=Z*2 end;
+    SmallText(ZoomButtonX+(ZoomButtonWidth-7) div 2+I*ZoomButtonStep,
+      NavigationY+(ZoomButtonHeight-5) div 2,Num(Z)+'X',4); Z:=Z*2 end;
   for I:=0 to 3 do begin
     Button(PanButtonX+I*PanButtonStep,NavigationY,PanButtonWidth,PanButtonHeight,False);
-    Triangle(PanButtonX+4+I*PanButtonStep,NavigationY+3,I);
+    Triangle(PanButtonX+(PanButtonWidth-5) div 2+I*PanButtonStep,
+      NavigationY+(PanButtonHeight-5) div 2,I);
   end;
 end;
 
