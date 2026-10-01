@@ -313,10 +313,10 @@ var I,Z:Integer;
 
 begin
   Z:=1;
-  for I:=0 to 3 do begin Button(85+I*17,161,16,10,Zoom=Z);
+  for I:=0 to 3 do begin Button(85+I*17,162,16,10,Zoom=Z);
     SmallText(89+I*17,164,Num(Z)+'X',4); Z:=Z*2 end;
   for I:=0 to 3 do begin
-    Button(156+I*14,161,13,10,False);
+    Button(156+I*14,162,13,10,False);
     Triangle(159+I*14,162,I);
   end;
 end;
