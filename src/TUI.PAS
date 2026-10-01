@@ -34,6 +34,9 @@ const ToolNames:array[0..7] of String[12]=
        ('..............','...........00.','..........00..','.........00...','........00....','.......00.....','......00......','.....00.......','....00........','...00.........','..00..........','.00...........','00............','..............'));
       MenuX:array[0..5] of Integer=(4,56,108,160,220,284);
 const ImagePreviewX=236; ImagePreviewY=29;
+      NavigationY=162;
+      ZoomButtonX=85; ZoomButtonWidth=16; ZoomButtonHeight=10; ZoomButtonStep=17;
+      PanButtonX=156; PanButtonWidth=13; PanButtonHeight=10; PanButtonStep=14;
       ClipPreviewX=236; ClipPreviewY=113;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
@@ -289,35 +292,53 @@ begin
   SmallText(219,183,'CLICK: PASTE',7);
 end;
 
+function ControlHit(X,Y,StartX,Width,Height,Step:Integer; var Index:Integer):Boolean;
+begin
+  ControlHit:=False;
+  if (X<StartX) or (Y<NavigationY) or (Y>=NavigationY+Height) then Exit;
+  Index:=(X-StartX) div Step;
+  if (Index<0) or (Index>3) or ((X-StartX) mod Step>=Width) then Exit;
+  ControlHit:=True;
+end;
+
+function InNavigationControl(X,Y:Integer):Boolean;
+var I:Integer;
+begin
+  InNavigationControl:=ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,
+    ZoomButtonHeight,ZoomButtonStep,I) or
+    ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,I);
+end;
+
 procedure Navigation;
 var I,Z:Integer;
 
   procedure Triangle(X,Y,Direction:Integer);
   var PX,PY,Half:Integer;
   begin
-    for PY:=0 to 6 do for PX:=0 to 6 do
+    for PY:=0 to 4 do for PX:=0 to 4 do
     begin
       case Direction of
         0:Half:=(PX+1) div 2;
-        1:Half:=(7-PX) div 2;
+        1:Half:=(5-PX) div 2;
         2:Half:=(PY+1) div 2;
-        3:Half:=(7-PY) div 2;
+        3:Half:=(5-PY) div 2;
       end;
       if Direction<2 then
       begin
-        if (PY>=3-Half) and (PY<=3+Half) then PutPixel(X+PX,Y+PY,4);
+        if (PY>=2-Half) and (PY<=2+Half) then PutPixel(X+PX,Y+PY,4);
       end else
-        if (PX>=3-Half) and (PX<=3+Half) then PutPixel(X+PX,Y+PY,4);
+        if (PX>=2-Half) and (PX<=2+Half) then PutPixel(X+PX,Y+PY,4);
     end;
   end;
 
 begin
   Z:=1;
-  for I:=0 to 3 do begin Button(85+I*17,162,16,10,Zoom=Z);
-    SmallText(89+I*17,164,Num(Z)+'X',4); Z:=Z*2 end;
+  for I:=0 to 3 do begin Button(ZoomButtonX+I*ZoomButtonStep,NavigationY,
+    ZoomButtonWidth,ZoomButtonHeight,Zoom=Z);
+    SmallText(ZoomButtonX+4+I*ZoomButtonStep,NavigationY+3,Num(Z)+'X',4); Z:=Z*2 end;
   for I:=0 to 3 do begin
-    Button(156+I*14,162,13,10,False);
-    Triangle(159+I*14,162,I);
+    Button(PanButtonX+I*PanButtonStep,NavigationY,PanButtonWidth,PanButtonHeight,False);
+    Triangle(PanButtonX+4+I*PanButtonStep,NavigationY+3,I);
   end;
 end;
 
@@ -826,8 +847,9 @@ begin
     if Button=1 then ForeColor:=I else if Button=2 then BackColor:=I;
     Colors; Exit;
   end;
-  if (Button in [1,2]) and (X>=156) and (X<212) and (Y>=161) and (Y<171) then
-  begin PanCommand((X-156) div 14,Button=1); Exit end;
+  if (Button in [1,2]) and
+     ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,I) then
+  begin PanCommand(I,Button=1); Exit end;
   if Button<>1 then Exit;
   if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
   begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
@@ -846,11 +868,8 @@ begin
     end;
     SelectedTool:=I; Tools; Exit;
   end;
-  if (Y>=161) and (Y<171) then
-  begin
-    if (X>=85) and (X<153) then
-    begin I:=(X-85) div 17; SetZoom(1 shl I); RedrawView end
-  end;
+  if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,I) then
+  begin SetZoom(1 shl I); RedrawView end;
 end;
 
 procedure PaintChanges;
@@ -1166,7 +1185,7 @@ begin
           (((Gesture=0) and (S.Buttons=0) and
             ((Key in [49,50,52,56]) or (Scan in [62,72,75,77,80]))) or
            (Gesture=3) or ((Scan=0) and (Gesture=0) and
-            (((S.X>=85) and (S.X<212) and (S.Y>=161) and (S.Y<171)) or
+            (InNavigationControl(S.X,S.Y) or
              ((S.X>=ImagePreviewX) and (S.X<ImagePreviewX+64) and
               (S.Y>=ImagePreviewY) and (S.Y<ImagePreviewY+64)))));
         if not DeferHide then HideCursor;
