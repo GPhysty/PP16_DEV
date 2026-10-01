@@ -344,7 +344,7 @@ begin
   if not Changed then Exit;
   if CursorOverlaps(84,175,213,187) then HideCursor;
   if not StatusValid then begin
-    FillBox(84,174,213,187,1);
+    FillBox(84,175,213,187,1);
     SmallText(88,176,'GRID X:',15); SmallText(124,176,' Y:',15);
     SmallText(88,182,'IMAGE X:',15); SmallText(128,182,' Y:',15);
     for I:=0 to 3 do StatusValues[I]:='??';
