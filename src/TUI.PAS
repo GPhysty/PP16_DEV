@@ -34,7 +34,7 @@ const ToolNames:array[0..7] of String[12]=
        ('..............','...........00.','..........00..','.........00...','........00....','.......00.....','......00......','.....00.......','....00........','...00.........','..00..........','.00...........','00............','..............'));
       MenuX:array[0..5] of Integer=(4,56,108,160,220,284);
 const ImagePreviewX=236; ImagePreviewY=29;
-      NavigationY=162;
+      NavigationY=161;
       ZoomButtonX=85; ZoomButtonWidth=16; ZoomButtonHeight=11; ZoomButtonStep=17;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
       ClipPreviewX=236; ClipPreviewY=113;
