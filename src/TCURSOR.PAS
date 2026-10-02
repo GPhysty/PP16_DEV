@@ -8,16 +8,16 @@ implementation
 uses TVideo;
 const {Cursor glyph: W = white outline, B = black interior, . = transparent.}
       CursorGlyph:array[0..9] of String[8]=
-        ('W.......',
-         'WW......',
-         'WWW.....',
-         'WWWW....',
-         'WWWWW...',
-         'WWWWWW..',
-         'WWWWWWW.',
-         'WWWWW...',
-         'WW.WW...',
-         'W...WW..');
+        ('B.......',
+         'BB......',
+         'BWB.....',
+         'BWWB....',
+         'BWWWB...',
+         'BWWWWB..',
+         'BWWWWBB.',
+         'BWWWWB..',
+         'BB.BWB..',
+         'B...BWB.');
 var Saved:array[0..9,0..4] of Byte;
     SavedX,SavedY,FirstByte,Top,Width,Height:Integer; Visible:Boolean;
 
