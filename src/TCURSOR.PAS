@@ -10,12 +10,12 @@ const {Cursor glyph: W = white outline, B = black interior, . = transparent.}
       CursorGlyph:array[0..9] of String[8]=
         ('W.......',
          'WW......',
-         'WBW.....',
-         'WBBW....',
-         'WBBBW...',
-         'WBBBBW..',
-         'WBBWWWW.',
-         'WBWWW...',
+         'WWW.....',
+         'WWWW....',
+         'WWWWW...',
+         'WWWWWW..',
+         'WWWWWWW.',
+         'WWWWW...',
          'WW.WW...',
          'W...WW..');
 var Saved:array[0..9,0..4] of Byte;
