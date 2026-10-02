@@ -155,7 +155,7 @@ begin
   if CachedTool>=0 then
     if CachedTool<>SelectedTool then
     begin ToolFrame(CachedTool); ToolFrame(SelectedTool) end;
-  FillBox(0,62,78,69,1);
+  FillBox(2,62,76,69,1);
   {$ifdef PP16_CLIP_ENABLED}
   if (SelectedTool=0) and SelectionValid then
     SmallText(7,64,'SELECT:'+Num(SelectionW)+'X'+Num(SelectionH),15)
