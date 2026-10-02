@@ -7,7 +7,7 @@ try {
     $runRel = 'obj/' + $runName
     $runDir = Join-Path $PSScriptRoot $runRel
     New-Item -ItemType Directory -Path $runDir | Out-Null
-    Copy-Item -LiteralPath out/PP16.EXE -Destination $runDir
+    Copy-Item -LiteralPath out/PP16.EXE,out/PP16UI.P16 -Destination $runDir
     & ./build-checks.ps1
     Copy-Item -LiteralPath obj/checks/PPTVIDEO.EXE,obj/checks/PPTVIEW.EXE,obj/checks/PPTDRAW.EXE,obj/checks/PPTUNDO.EXE,obj/checks/PPTRESP.EXE,obj/checks/PPTFUI.EXE,obj/checks/PPTCLIP.EXE,obj/checks/PPTFILE.EXE,obj/checks/PPSTART.EXE -Destination $runDir
     & './tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe' '-n' '@hx8086.cfg' '-oMEMINFO.EXE' 'src/MEMINFO.PAS' 2>&1 |

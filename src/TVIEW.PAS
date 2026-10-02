@@ -7,12 +7,18 @@ procedure InitView;
 procedure SetZoom(Value:Integer);
 procedure PanView(DX,DY:Integer);
 function VisibleCells:Integer;
+function CanvasImageOffset:Integer;
 function ScreenToDoc(X,Y:Integer; var DX,DY:Integer):Boolean;
 function IsCanvas(X,Y:Integer):Boolean;
 implementation
 uses TDoc;
 function VisibleCells:Integer;
 begin VisibleCells:=CanvasSize div Zoom end;
+
+function CanvasImageOffset:Integer;
+begin
+  if Zoom=1 then CanvasImageOffset:=32 else CanvasImageOffset:=0;
+end;
 
 procedure ClampPan;
 var Limit:Integer;
@@ -46,11 +52,14 @@ begin
 end;
 
 function ScreenToDoc(X,Y:Integer; var DX,DY:Integer):Boolean;
+var Offset:Integer;
 begin
   ScreenToDoc:=False; DX:=-1; DY:=-1;
   if not IsCanvas(X,Y) then Exit;
-  DX:=PanX+(X-CanvasX) div Zoom;
-  DY:=PanY+(Y-CanvasY) div Zoom;
+  Offset:=CanvasImageOffset;
+  if (X<CanvasX+Offset) or (Y<CanvasY+Offset) then Exit;
+  DX:=PanX+(X-CanvasX-Offset) div Zoom;
+  DY:=PanY+(Y-CanvasY-Offset) div Zoom;
   if (DX>=DocWidth) or (DY>=DocHeight) then
   begin DX:=-1; DY:=-1; Exit end;
   ScreenToDoc:=True;

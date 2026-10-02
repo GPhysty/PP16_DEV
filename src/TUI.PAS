@@ -23,21 +23,14 @@ uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
       ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
-      ToolIcons:array[0..7,0..13] of String[14]=(
-       ('.FF........FF.','..F8......8F..','..F88....88F..','...F88..88F...','....F8888F....','.....F88F.....','......88......','.....2882.....','..2222..2222..','.2FF22..22FF2.','.2F..2..2..F2.','.2F..2..2..F2.','..222....222..','..............'),
-       ('..............','...........CC.','.......FF8CCC.','......FFF8CC..','.....F87F788..','....F77FFFFF..','...F8778F77F..','..F7FF7F8F....','.FF78F77FF....','.FFF788FF.....','.FFFF77F......','..FFFFF.......','...FFF........','..............'),
-       ('.....000......','....0...0.....','...0.....0....','....00000.....','...0777780....','..07FFFF780...','.07FFFFF7800..','.078FFF780.C0.','..078F780.CC0.','...07880.CCC0.','....000..CCC0.','........0CCC0.','......00CCCC00','.....0CCCCCCC0'),
-       ('..........66..','.........6E6..','........6E6...','.......6E6....','......6E6.....','.....6E6......','....788.......','...7F88.......','..0008........','.04440........','044CC0........','04CC00........','0CCC0.........','.000..........'),
-       ('..............','......0000....','.....0DDDD0...','....0DDDDDD0..','...0DDDDDDD50.','..0DDDDDDD550.','.0DDDDDDD5550.','0F7DDDDD5550..','0FF7DDD5550...','.0FF7D5550....','..0FF7550.....','...0FF50......','....000.......','..............'),
-       ('..............','.....0000.....','...00000000...','..000....000..','..00......00..','.00........00.','.00........00.','.00........00.','.00........00.','..00......00..','..000....000..','...00000000...','.....0000.....','..............'),
-       ('..............','.000000000000.','.000000000000.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.00........00.','.000000000000.','.000000000000.','..............'),
-       ('..............','...........00.','..........00..','.........00...','........00....','.......00.....','......00......','.....00.......','....00........','...00.........','..00..........','.00...........','00............','..............'));
       MenuX:array[0..5] of Integer=(4,56,108,160,220,284);
 const ImagePreviewX=236; ImagePreviewY=29;
+      ToolAtlasName='PP16UI.P16'; ToolAtlasCell=14; ToolAtlasStep=16;
+      ToolAtlasTransparent=11; {Light cyan: icon-cell background / transparent key.}
       NavigationY=161;
       ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=14;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
-      ClipPreviewX=236; ClipPreviewY=113;
+      ClipPreviewX=236; ClipPreviewY=113; ClipPreviewSize=64;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
     Gesture:Byte; StrokeColor:Byte; StrokeX,StrokeY:Integer;
@@ -46,6 +39,7 @@ var OpenMenu:Integer;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
     PendingCommand:Byte; ConfirmDiscard,PaintedUndo:Boolean;
+    ToolAtlas:TDocPixels; ToolAtlasLoaded:Boolean;
     CachedTool,CachedFore,CachedBack:Integer;
     PreviewValid:Boolean; PreviewX1,PreviewY1,PreviewX2,PreviewY2:Integer;
     ViewedZoom,ViewedPanX,ViewedPanY:Integer; ViewedGrid:Boolean;
@@ -113,21 +107,38 @@ begin
   Box(X+1,Y+1,X+16,Y+16,C);
 end;
 
+function ToolAtlasPixel(Tool,X,Y:Integer):Byte;
+var A:Word; SX,SY:Integer;
+begin
+  SX:=(Tool mod 4)*ToolAtlasStep+X;
+  SY:=(Tool div 4)*ToolAtlasStep+Y;
+  A:=Word(SY)*32+Word(SX div 2);
+  if Odd(SX) then ToolAtlasPixel:=ToolAtlas[A] and 15
+  else ToolAtlasPixel:=ToolAtlas[A] shr 4;
+end;
+
+procedure LoadToolAtlas;
+begin
+  ToolAtlasLoaded:=LoadImage(ToolAtlasName);
+  if ToolAtlasLoaded then DocCopy(ToolAtlas);
+  {The atlas is a startup resource, never the user's current document.}
+  InitDemoDoc; CurrentFile:=''; FileError:='';
+end;
+
 procedure Tools;
-var I,X,Y,J,K:Integer; C:Byte; P:Char;
+var I,X,Y,J,K:Integer; C:Byte;
 begin
   if CachedTool<0 then for I:=0 to 7 do
   begin
     X:=2+(I mod 4)*19; Y:=18+(I div 4)*19;
     Button(X,Y,18,18,I=SelectedTool);
     FillBox(X+2,Y+2,X+15,Y+15,11);
-    for J:=0 to 13 do for K:=0 to 13 do
+    for J:=0 to ToolAtlasCell-1 do for K:=0 to ToolAtlasCell-1 do
     begin
-      P:=ToolIcons[I,J][K+1];
-      if P<>'.' then
+      if ToolAtlasLoaded then
       begin
-        if P<='9' then C:=Ord(P)-Ord('0') else C:=Ord(P)-Ord('A')+10;
-        PutPixel(X+2+K,Y+2+J,C);
+        C:=ToolAtlasPixel(I,K,J);
+        if C<>ToolAtlasTransparent then PutPixel(X+2+K,Y+2+J,C);
       end;
     end;
     if I=SelectedTool then Box(X+1,Y+1,X+16,Y+16,14);
@@ -180,39 +191,41 @@ begin
 end;
 
 procedure DrawCanvas;
-var X,Y,C,J,R,A,H:Integer; Col,PairColor,Edge:Byte; Source:TDocRow;
+var X,Y,C,J,R,A,H,Offset:Integer; Col,PairColor,Edge:Byte; Source:TDocRow;
     Row,GridRow:array[0..64] of Byte;
 begin
   {Build complete packed rows before touching video RAM. X=85 is odd, so
    each 65-byte row includes the two unchanged border nibbles at 84/213.}
   FillChar(GridRow,SizeOf(GridRow),$88); GridRow[0]:=$78; GridRow[64]:=$87;
   C:=VisibleCells; if C>64 then C:=64;
+  Offset:=CanvasImageOffset;
   Y:=0;
   while Y<128 do
   begin
     Move(GridRow,Row,SizeOf(Row));
-    if PanY+Y div Zoom<64 then
-      if Zoom=1 then
+    if Zoom=1 then
+    begin
+      {At 1x, the centered 64x64 image is a direct odd-aligned packed copy.}
+      if (Y>=Offset) and (Y<Offset+64) then
       begin
-        {At 1x, the first 64 canvas pixels are a direct odd-aligned packed
-         document row. Leave the surrounding canvas/background nibbles alone.}
-        DocReadRow(PanY+Y,Source);
-        Row[0]:=(Row[0] and $F0) or (Source[0] shr 4);
-        for J:=1 to 31 do Row[J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
-        Row[32]:=(Row[32] and $0F) or ((Source[31] and $0F) shl 4);
-      end else
-        for X:=0 to C-1 do
-        begin
-          Col:=DocPixel(PanX+X,PanY+Y div Zoom);
-          A:=(X*Zoom+1) div 2; H:=Zoom div 2;
-          PairColor:=Col or (Col shl 4);
-          Row[A]:=(Row[A] and $F0) or Col;
-          for J:=1 to H-1 do Row[A+J]:=PairColor;
-          if GridVisible and (Zoom>=4) then Edge:=8 else Edge:=Col;
-          Row[A+H]:=(Row[A+H] and 15) or (Edge shl 4);
-        end;
+        DocReadRow(PanY+Y-Offset,Source);
+        Row[Offset div 2]:=(Row[Offset div 2] and $F0) or (Source[0] shr 4);
+        for J:=1 to 31 do Row[Offset div 2+J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
+        Row[Offset div 2+32]:=(Row[Offset div 2+32] and $0F) or ((Source[31] and $0F) shl 4);
+      end;
+    end else if PanY+Y div Zoom<64 then
+      for X:=0 to C-1 do
+      begin
+        Col:=DocPixel(PanX+X,PanY+Y div Zoom);
+        A:=(X*Zoom+1) div 2; H:=Zoom div 2;
+        PairColor:=Col or (Col shl 4);
+        Row[A]:=(Row[A] and $F0) or Col;
+        for J:=1 to H-1 do Row[A+J]:=PairColor;
+        if GridVisible and (Zoom>=2) then Edge:=8 else Edge:=Col;
+        Row[A+H]:=(Row[A+H] and 15) or (Edge shl 4);
+      end;
     for R:=0 to Zoom-1 do
-      if GridVisible and (Zoom>=4) and (R=Zoom-1) then
+      if GridVisible and (Zoom>=2) and (R=Zoom-1) then
         Move(GridRow,CanvasFrame[Y+R],SizeOf(Row))
       else Move(Row,CanvasFrame[Y+R],SizeOf(Row));
     Inc(Y,Zoom);
@@ -271,7 +284,7 @@ end;
 
 procedure ClipboardPanel;
 {$ifdef PP16_CLIP_ENABLED}
-var X,Y:Integer; S:String[12];
+var X,Y,OffsetX,OffsetY:Integer; S:String[12];
 {$endif}
 begin
   FillBox(218,101,318,190,0);
@@ -281,9 +294,10 @@ begin
   begin
     S:='CLIP:'+Num(ClipboardWidth)+'X'+Num(ClipboardHeight);
     SmallText(219,104,S,15);
-    for Y:=0 to 63 do for X:=0 to 63 do
-      if (X<ClipboardWidth) and (Y<ClipboardHeight) then
-        PutPixel(ClipPreviewX+X,ClipPreviewY+Y,ClipboardPixel(X,Y));
+    OffsetX:=(ClipPreviewSize-ClipboardWidth) div 2;
+    OffsetY:=(ClipPreviewSize-ClipboardHeight) div 2;
+    for Y:=0 to ClipboardHeight-1 do for X:=0 to ClipboardWidth-1 do
+      PutPixel(ClipPreviewX+OffsetX+X,ClipPreviewY+OffsetY+Y,ClipboardPixel(X,Y));
   end
   else SmallText(219,104,'CLIP: EMPTY',8);
   {$else}
@@ -359,7 +373,8 @@ var DX,DY,GX,GY,I,J:Integer; V:array[0..3] of String[2]; Changed:Boolean;
 begin
   GX:=-1; GY:=-1;
   if ScreenToDoc(X,Y,DX,DY) then
-  begin GX:=(X-CanvasX) div Zoom; GY:=(Y-CanvasY) div Zoom end;
+  begin GX:=(X-CanvasX-CanvasImageOffset) div Zoom;
+        GY:=(Y-CanvasY-CanvasImageOffset) div Zoom end;
   V[0]:=Coord(GX); V[1]:=Coord(GY); V[2]:=Coord(DX); V[3]:=Coord(DY);
   Changed:=not StatusValid;
   for I:=0 to 3 do if V[I]<>StatusValues[I] then Changed:=True;
@@ -525,20 +540,20 @@ begin
 end;
 
 procedure SelectionBorder(X,Y,W,H:Integer; C:Byte; Restore:Boolean);
-var I,X1,Y1,X2,Y2:Integer; Shade,DX,DY:Byte;
+var I,X1,Y1,X2,Y2,DX,DY:Integer; Shade:Byte;
 
   procedure BorderPixel(PX,PY:Integer);
   begin
     if Restore then
     begin
       Shade:=8;
-      DX:=PanX+(PX-CanvasX) div Zoom; DY:=PanY+(PY-CanvasY) div Zoom;
-      if (DX<64) and (DY<64) then
-      begin
-        Shade:=DocPixel(DX,DY);
-        if GridVisible and (Zoom>=4) and
-           (((PX-CanvasX) mod Zoom=Zoom-1) or ((PY-CanvasY) mod Zoom=Zoom-1)) then Shade:=8;
-      end;
+        if ScreenToDoc(PX,PY,DX,DY) then
+        begin
+          Shade:=DocPixel(DX,DY);
+          if GridVisible and (Zoom>=2) and
+           (((PX-CanvasX-CanvasImageOffset) mod Zoom=Zoom-1) or
+            ((PY-CanvasY-CanvasImageOffset) mod Zoom=Zoom-1)) then Shade:=8;
+        end;
     end else begin
       Shade:=C;
       {The saved selection marquee is a true screen-pixel stipple, rather than
@@ -550,8 +565,10 @@ var I,X1,Y1,X2,Y2:Integer; Shade,DX,DY:Byte;
 
 begin
   if (W<1) or (H<1) then Exit;
-  X1:=CanvasX+(X-PanX)*Zoom; Y1:=CanvasY+(Y-PanY)*Zoom;
-  X2:=CanvasX+(X+W-PanX)*Zoom-1; Y2:=CanvasY+(Y+H-PanY)*Zoom-1;
+  X1:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
+  Y1:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
+  X2:=CanvasX+CanvasImageOffset+(X+W-PanX)*Zoom-1;
+  Y2:=CanvasY+CanvasImageOffset+(Y+H-PanY)*Zoom-1;
   if (X2<CanvasX) or (Y2<CanvasY) or
      (X1>=CanvasX+CanvasSize) or (Y1>=CanvasY+CanvasSize) then Exit;
   if X1<CanvasX then X1:=CanvasX; if Y1<CanvasY then Y1:=CanvasY;
@@ -634,7 +651,7 @@ end;
 {$endif}
 
 procedure InitUI;
-begin InitDemoDoc; CurrentFile:=''; InitView; ForeColor:=15; BackColor:=0;
+begin LoadToolAtlas; InitView; ForeColor:=15; BackColor:=0;
   StatusValid:=False; ShiftHeld:=False;
   CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
@@ -887,9 +904,10 @@ begin
       if (X>=PanX) and (X<PanX+VisibleCells) and
          (Y>=PanY) and (Y<PanY+VisibleCells) then
       begin
-        SX:=CanvasX+(X-PanX)*Zoom; SY:=CanvasY+(Y-PanY)*Zoom;
+        SX:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
+        SY:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
         FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
-        if GridVisible and (Zoom>=4) then
+        if GridVisible and (Zoom>=2) then
         begin
           HSpan(SX,SX+Zoom-1,SY+Zoom-1,8);
           for J:=SY to SY+Zoom-2 do PutPixel(SX+Zoom-1,J,8);
@@ -922,9 +940,10 @@ begin
   if (X<PanX) or (X>=PanX+VisibleCells) or
      (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
   if C<0 then C:=DocPixel(X,Y);
-  SX:=CanvasX+(X-PanX)*Zoom; SY:=CanvasY+(Y-PanY)*Zoom;
+  SX:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
+  SY:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
   FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
-  if GridVisible and (Zoom>=4) then
+  if GridVisible and (Zoom>=2) then
   begin
     HSpan(SX,SX+Zoom-1,SY+Zoom-1,8);
     for J:=SY to SY+Zoom-2 do PutPixel(SX+Zoom-1,J,8);
@@ -1210,7 +1229,7 @@ end;
 
 {$ifdef PP16_VIEW_TEST}
 function ViewChecks:Word;
-var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY:Integer; OK:Boolean; C:Byte;
+var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY,Offset:Integer; OK:Boolean; C:Byte;
 
   procedure CheckPreviewFrames;
   begin
@@ -1229,15 +1248,19 @@ begin
       PanView(-64,-64); if I=1 then PanView(64,64);
       for G:=0 to 1 do begin
       GridVisible:=G=1; DrawCanvas;
+      Offset:=CanvasImageOffset;
       for Y:=0 to 127 do for X:=0 to 127 do
       begin
         OK:=ScreenToDoc(CanvasX+X,CanvasY+Y,DX,DY);
         C:=8;
-        if (PanX+X div Z<64) and (PanY+Y div Z<64) then
+        if (X>=Offset) and (Y>=Offset) and
+           (PanX+(X-Offset) div Z<64) and (PanY+(Y-Offset) div Z<64) then
         begin
-          if (not OK) or (DX<>PanX+X div Z) or (DY<>PanY+Y div Z) then Inc(F);
-          C:=DocPixel(PanX+X div Z,PanY+Y div Z);
-          if GridVisible and (Z>=4) and ((X mod Z=Z-1) or (Y mod Z=Z-1)) then C:=8;
+          if (not OK) or (DX<>PanX+(X-Offset) div Z) or
+             (DY<>PanY+(Y-Offset) div Z) then Inc(F);
+          C:=DocPixel(PanX+(X-Offset) div Z,PanY+(Y-Offset) div Z);
+          if GridVisible and (Z>=2) and
+             (((X-Offset) mod Z=Z-1) or ((Y-Offset) mod Z=Z-1)) then C:=8;
         end
         else if OK then Inc(F);
         if GetPixel(CanvasX+X,CanvasY+Y)<>C then Inc(F);
@@ -1252,10 +1275,10 @@ begin
   InitView;
   HandleClick(4,128,1); if ForeColor<>0 then Inc(F);
   HandleClick(62,174,2); if BackColor<>15 then Inc(F);
-  HandleClick(90,164,1); if Zoom<>1 then Inc(F);
-  HandleClick(142,164,1); if Zoom<>8 then Inc(F);
-  HandleClick(180,164,1); if PanX<0 then Inc(F);
-  HandleClick(5,3,1); HandleClick(90,164,1); if Zoom<>8 then Inc(F);
+  HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>1 then Inc(F);
+  HandleClick(ZoomButtonX+3*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
+  HandleClick(PanButtonX+PanButtonStep+2,NavigationY+2,1); if PanX<0 then Inc(F);
+  HandleClick(5,3,1); HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(5,21,1); if SelectedTool<>0 then Inc(F);
   if (Shortcut(1,2)<>'Ctrl+X') or (Shortcut(1,3)<>'Ctrl+C') or
      (Shortcut(1,4)<>'Ctrl+V') then Inc(F);
@@ -1286,7 +1309,8 @@ var F:Word; S:TMouseState; Before:DWord;
   begin S.X:=SX; S.Y:=SY; UpdateButtons(Buttons,S); PointerInput(S) end;
 
   procedure AtDoc(DX,DY:Integer; Buttons:Byte);
-  begin Feed(CanvasX+(DX-PanX)*Zoom,CanvasY+(DY-PanY)*Zoom,Buttons) end;
+  begin Feed(CanvasX+CanvasImageOffset+(DX-PanX)*Zoom,
+             CanvasY+CanvasImageOffset+(DY-PanY)*Zoom,Buttons) end;
 
 begin
   F:=0; InitUI; InitBlankDoc(0); SetZoom(2); PanView(-64,-64); DrawUI;
@@ -1295,6 +1319,8 @@ begin
   AtDoc(2,3,1); AtDoc(2,3,0); KeyInput(3,0,0);
   Check(ClipboardValid and (ClipboardPixel(0,0)=5) and (DocChecksum=Before),
         'copy is document-neutral');
+  Check((GetPixel(ClipPreviewX+31,ClipPreviewY+31)=5) and
+        (GetPixel(ClipPreviewX,ClipPreviewY)=0),'clip preview is centered');
   KeyInput(24,0,0); Check(DocPixel(2,3)=0,'Cut clears selection');
   DocUndo; Check(DocChecksum=Before,'Cut undo restores source');
   KeyInput(22,0,0); KeyInput(0,77,0); AtDoc(63,63,0);
@@ -1319,7 +1345,8 @@ var F:Word; S:TMouseState; I,X,Y,Z,A,B:Integer; C:Byte; Before:DWord;
   begin S.X:=SX; S.Y:=SY; UpdateButtons(Buttons,S); PointerInput(S) end;
 
   procedure AtDoc(DX,DY:Integer; Buttons:Byte);
-  begin Feed(CanvasX+(DX-PanX)*Zoom,CanvasY+(DY-PanY)*Zoom,Buttons) end;
+  begin Feed(CanvasX+CanvasImageOffset+(DX-PanX)*Zoom,
+             CanvasY+CanvasImageOffset+(DY-PanY)*Zoom,Buttons) end;
 
   procedure ResetTest;
   begin
@@ -1508,9 +1535,13 @@ var F:Word; S:TMouseState; Before:DWord; I,Y:Integer;
     else PointerFeedback(CanvasX+N*4,CanvasY+N*4);
     HideCursor;
     Check(SaveArea(84,174,213,187,SavedPopup),'status capture');
-    FillBox(84,174,213,187,1);
-    SmallText(88,176,'GRID X:'+Value+' Y:'+Value,15);
-    SmallText(88,182,'IMAGE X:'+Value+' Y:'+Value,15);
+    FillBox(84,175,213,187,1);
+    SmallText(88,176,'GRID X:',15); SmallText(124,176,' Y:',15);
+    SmallText(88,182,'IMAGE X:',15); SmallText(128,182,' Y:',15);
+    SmallCharOpaque(116,176,Value[1],15,1); SmallCharOpaque(120,176,Value[2],15,1);
+    SmallCharOpaque(136,176,Value[1],15,1); SmallCharOpaque(140,176,Value[2],15,1);
+    SmallCharOpaque(120,182,Value[1],15,1); SmallCharOpaque(124,182,Value[2],15,1);
+    SmallCharOpaque(140,182,Value[1],15,1); SmallCharOpaque(144,182,Value[2],15,1);
     A:=0;
     for Y:=174 to 187 do for X:=42 to 106 do begin
       Check(Mem[VideoSeg:PixelOffset(0,Y)+X]=SavedPopup[A],'opaque coordinate update');
@@ -1595,7 +1626,7 @@ begin
   Check((CurrentFile='') and not DocDirty,'New clears filename');
   KeyInput(15,24,0); KeyInput(9,15,0); KeyInput(0,80,0); KeyInput(13,28,0);
   Check((OpenMenu=-1) and (CurrentFile<>'') and not DocDirty,'keyboard file list opens a file');
-  StartFileDialog(False); HandleClick(76,73,1); HandleClick(110,130,1);
+  StartFileDialog(False); HandleClick(76,80,1); HandleClick(110,130,1);
   Check((OpenMenu=-1) and (CurrentFile='UICOPY.P16'),'mouse file list and OK');
   StartFileDialog(True); KeyInput(13,28,0); KeyInput(9,15,0); KeyInput(13,28,0);
   Check((OpenMenu=-1) and not DocDirty,'explicit overwrite confirms');
