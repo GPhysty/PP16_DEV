@@ -326,12 +326,9 @@ begin
     ClipTransformButtonSize,False);
   Button(ClipTransformButtonX,ClipFlipButtonY,ClipTransformButtonSize,
     ClipTransformButtonSize,False);
-  if ClipboardValid then
-  begin
-    AtlasIcon(9,ClipTransformButtonX+2,ClipMirrorButtonY+2);
-    AtlasIcon(8,ClipTransformButtonX+2,ClipRotateButtonY+2);
-    AtlasIcon(10,ClipTransformButtonX+2,ClipFlipButtonY+2);
-  end;
+  AtlasIcon(9,ClipTransformButtonX+2,ClipMirrorButtonY+2);
+  AtlasIcon(8,ClipTransformButtonX+2,ClipRotateButtonY+2);
+  AtlasIcon(10,ClipTransformButtonX+2,ClipFlipButtonY+2);
   if ClipboardValid then
   begin
     S:='CLIP:'+Num(ClipboardWidth)+'X'+Num(ClipboardHeight);
@@ -1385,6 +1382,10 @@ begin
   F:=0; InitUI; InitBlankDoc(0); SetZoom(2); PanView(-64,-64); DrawUI;
   FillChar(S,SizeOf(S),0); SelectedTool:=0; DocSetPixel(2,3,5);
   DocSaved; Before:=DocChecksum;
+  Check((GetPixel(ClipTransformButtonX+8,ClipMirrorButtonY+8)<>7) and
+        (GetPixel(ClipTransformButtonX+8,ClipRotateButtonY+8)<>7) and
+        (GetPixel(ClipTransformButtonX+8,ClipFlipButtonY+8)<>7),
+        'transform buttons are visible without a clipboard');
   AtDoc(2,3,1); AtDoc(2,3,0); KeyInput(3,0,0);
   Check(ClipboardValid and (ClipboardPixel(0,0)=5) and (DocChecksum=Before),
         'copy is document-neutral');
