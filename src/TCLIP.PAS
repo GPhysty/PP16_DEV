@@ -9,9 +9,11 @@ procedure ClearClipboard;
 procedure ClipboardCopy(X,Y,W,H:Integer);
 procedure ClipboardCut(X,Y,W,H:Integer; Background:Byte);
 procedure ClipboardPaste(X,Y:Integer);
+procedure ClipboardRotateClockwise;
 function ClipboardPixel(X,Y:Integer):Byte;
 implementation
-var ClipPixels:array[0..ClipBytes-1] of Byte;
+type TClipPixels=array[0..ClipBytes-1] of Byte;
+var ClipPixels,RotatePixels:TClipPixels;
 
 function RowBytes:Integer;
 begin RowBytes:=(ClipboardWidth+1) div 2 end;
@@ -19,23 +21,30 @@ begin RowBytes:=(ClipboardWidth+1) div 2 end;
 procedure ClearClipboard;
 begin ClipboardValid:=False; ClipboardWidth:=0; ClipboardHeight:=0 end;
 
-procedure ClipSetPixel(X,Y:Integer; C:Byte);
+procedure BufferSetPixel(var Data:TClipPixels; Width,X,Y:Integer; C:Byte);
 var A:Word;
 begin
-  A:=Word(Y)*RowBytes+Word(X div 2);
-  if Odd(X) then ClipPixels[A]:=(ClipPixels[A] and $F0) or C
-  else ClipPixels[A]:=(ClipPixels[A] and $0F) or (C shl 4);
+  A:=Word(Y)*Word((Width+1) div 2)+Word(X div 2); C:=C and 15;
+  if Odd(X) then Data[A]:=(Data[A] and $F0) or C
+  else Data[A]:=(Data[A] and $0F) or (C shl 4);
 end;
 
+function BufferPixel(const Data:TClipPixels; Width,X,Y:Integer):Byte;
+var A:Word; B:Byte;
+begin
+  A:=Word(Y)*Word((Width+1) div 2)+Word(X div 2); B:=Data[A];
+  if Odd(X) then BufferPixel:=B and 15 else BufferPixel:=B shr 4;
+end;
+
+procedure ClipSetPixel(X,Y:Integer; C:Byte);
+begin BufferSetPixel(ClipPixels,ClipboardWidth,X,Y,C) end;
+
 function ClipboardPixel(X,Y:Integer):Byte;
-var A:Word;
 begin
   ClipboardPixel:=0;
   if (not ClipboardValid) or (X<0) or (Y<0) or
      (X>=ClipboardWidth) or (Y>=ClipboardHeight) then Exit;
-  A:=Word(Y)*RowBytes+Word(X div 2);
-  if Odd(X) then ClipboardPixel:=ClipPixels[A] and 15
-  else ClipboardPixel:=ClipPixels[A] shr 4;
+  ClipboardPixel:=BufferPixel(ClipPixels,ClipboardWidth,X,Y);
 end;
 
 procedure ClipboardCopy(X,Y,W,H:Integer);
@@ -80,6 +89,19 @@ begin
     if (X+I>=0) and (Y+J>=0) and (X+I<DocWidth) and (Y+J<DocHeight) then
       DocSetPixel(X+I,Y+J,ClipboardPixel(I,J));
   DocCommitAction;
+end;
+
+procedure ClipboardRotateClockwise;
+var X,Y,OldWidth,OldHeight:Integer;
+begin
+  if not ClipboardValid then Exit;
+  OldWidth:=ClipboardWidth; OldHeight:=ClipboardHeight;
+  FillChar(RotatePixels,SizeOf(RotatePixels),0);
+  for Y:=0 to OldHeight-1 do for X:=0 to OldWidth-1 do
+    BufferSetPixel(RotatePixels,OldHeight,OldHeight-1-Y,X,
+      BufferPixel(ClipPixels,OldWidth,X,Y));
+  Move(RotatePixels,ClipPixels,ClipBytes);
+  ClipboardWidth:=OldHeight; ClipboardHeight:=OldWidth;
 end;
 
 end.

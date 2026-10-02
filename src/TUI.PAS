@@ -31,6 +31,7 @@ const ImagePreviewX=236; ImagePreviewY=29;
       ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=14;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
       ClipPreviewX=236; ClipPreviewY=113; ClipPreviewSize=64;
+      ClipRotateButtonX=301; ClipRotateButtonY=136; ClipRotateButtonSize=18;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
     Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
@@ -120,6 +121,17 @@ begin
   else ToolAtlasPixel:=ToolAtlas[A] shr 4;
 end;
 
+procedure AtlasIcon(Sprite,X,Y:Integer);
+var J,K:Integer; C:Byte;
+begin
+  if not ToolAtlasLoaded then Exit;
+  for J:=0 to ToolAtlasCell-1 do for K:=0 to ToolAtlasCell-1 do
+  begin
+    C:=ToolAtlasPixel(Sprite,K,J);
+    if C<>ToolAtlasTransparent then PutPixel(X+K,Y+J,C);
+  end;
+end;
+
 procedure LoadToolAtlas;
 begin
   ToolAtlasLoaded:=LoadImage(ToolAtlasName);
@@ -136,14 +148,7 @@ begin
     X:=2+(I mod 4)*19; Y:=18+(I div 4)*19;
     Button(X,Y,18,18,I=SelectedTool);
     FillBox(X+2,Y+2,X+15,Y+15,11);
-    for J:=0 to ToolAtlasCell-1 do for K:=0 to ToolAtlasCell-1 do
-    begin
-      if ToolAtlasLoaded then
-      begin
-        C:=ToolAtlasPixel(I,K,J);
-        if C<>ToolAtlasTransparent then PutPixel(X+2+K,Y+2+J,C);
-      end;
-    end;
+    AtlasIcon(I,X+2,Y+2);
     if I=SelectedTool then Box(X+1,Y+1,X+16,Y+16,14);
   end;
   if CachedTool>=0 then
@@ -314,6 +319,9 @@ begin
   FillBox(218,101,318,190,0);
   Box(235,112,300,178,7);
   {$ifdef PP16_CLIP_ENABLED}
+  Button(ClipRotateButtonX,ClipRotateButtonY,ClipRotateButtonSize,
+    ClipRotateButtonSize,False);
+  if ClipboardValid then AtlasIcon(8,ClipRotateButtonX+2,ClipRotateButtonY+2);
   if ClipboardValid then
   begin
     S:='CLIP:'+Num(ClipboardWidth)+'X'+Num(ClipboardHeight);
@@ -907,6 +915,12 @@ begin
   if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
   begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
   {$ifdef PP16_CLIP_ENABLED}
+  if (Button=1) and ClipboardValid and
+     (X>=ClipRotateButtonX) and (X<ClipRotateButtonX+ClipRotateButtonSize) and
+     (Y>=ClipRotateButtonY) and (Y<ClipRotateButtonY+ClipRotateButtonSize) then
+  begin
+    ClipboardRotateClockwise; ClipboardPanel; Exit;
+  end;
   if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
   begin BeginPaste; Exit end;
   {$endif}
@@ -1370,6 +1384,20 @@ begin
   AtDoc(63,63,1); Check(DocPixel(63,63)=5,'click commits paste');
   DocUndo; KeyInput(22,0,0); KeyInput(27,1,0);
   Check((DocChecksum=Before) and not PasteMode,'Escape cancels floating paste');
+  InitBlankDoc(0);
+  DocSetPixel(10,10,1); DocSetPixel(11,10,2);
+  DocSetPixel(10,11,3); DocSetPixel(11,11,4);
+  DocSetPixel(10,12,5); DocSetPixel(11,12,6);
+  DocSaved; Before:=DocChecksum; ClipboardCopy(10,10,2,3); ClipboardPanel;
+  HandleClick(ClipRotateButtonX+8,ClipRotateButtonY+8,1);
+  Check(ClipboardValid and (ClipboardWidth=3) and (ClipboardHeight=2) and
+        (ClipboardPixel(0,0)=5) and (ClipboardPixel(1,0)=3) and
+        (ClipboardPixel(2,0)=1) and (ClipboardPixel(0,1)=6) and
+        (ClipboardPixel(1,1)=4) and (ClipboardPixel(2,1)=2),
+        'rotate button turns clipboard clockwise');
+  Check((GetPixel(ClipPreviewX+30,ClipPreviewY+31)=5) and
+        (GetPixel(ClipPreviewX+32,ClipPreviewY+32)=2) and
+        (DocChecksum=Before),'rotation refreshes preview without document changes');
   ClipChecks:=F;
 end;
 {$endif}

@@ -19,6 +19,10 @@ validity metadata. It survives New and Open but is not part of a `.P16` file.
   redrawing the canvas or clipboard image. Opaque paste clips at the 64 by 64
   document edge and is one undoable action. Escape cancels without changing
   pixels or replacing the prior undo action.
+- The button at the right side of the Clipboard panel rotates the session
+  clipboard 90° clockwise before placement. Rotation swaps its width and
+  height, immediately redraws its preview, and never changes the document or
+  undo history.
 
 Edit menu availability reflects the selection, clipboard and undo states.
 Right-click remains the universal foreground-color sampler.
@@ -29,8 +33,10 @@ The clipboard remains a fixed 2,048-byte packed buffer. Copy now takes a
 packed-row path when both the selection origin and width are even: each source
 row is moved directly from the packed document into the clipboard. Odd-aligned
 or odd-width selections retain the pixel-accurate fallback, so selection and
-paste semantics are unchanged. Cut and Paste continue to use the normal
-document mutation path to preserve one-level undo and dirty-row tracking.
+paste semantics are unchanged. A second 2,048-byte scratch buffer repacks a
+clockwise rotation safely before swapping the clipboard dimensions. Cut and
+Paste continue to use the normal document mutation path to preserve one-level
+undo and dirty-row tracking.
 
 ## Validation
 

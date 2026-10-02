@@ -37,7 +37,9 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   edge and is one undoable action.
 - **Clipboard** (top row, second icon) or its right-hand panel: begin placement
   of the current clipboard image. The panel shows the clipboard at actual size
-  and its dimensions; the Select label shows the current selection dimensions.
+  and its dimensions; click its right-side rotate button to turn the clipboard
+  90° clockwise before placement. The Select label shows the current selection
+  dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
