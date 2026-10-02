@@ -6,8 +6,18 @@ procedure HideCursor;
 function CursorOverlaps(X1,Y1,X2,Y2:Integer):Boolean;
 implementation
 uses TVideo;
-const Outline:array[0..9] of Byte=($80,$C0,$E0,$F0,$F8,$FC,$FE,$F8,$D8,$8C);
-      Inside:array[0..9] of Byte= ($00,$00,$40,$60,$70,$78,$00,$60,$40,$00);
+const {Cursor glyph: W = white outline, B = black interior, . = transparent.}
+      CursorGlyph:array[0..9] of String[8]=
+        ('W.......',
+         'WW......',
+         'WBW.....',
+         'WBBW....',
+         'WBBBW...',
+         'WBBBBW..',
+         'WBBWWWW.',
+         'WBWWW...',
+         'WW.WW...',
+         'W...WW..');
 var Saved:array[0..9,0..4] of Byte;
     SavedX,SavedY,FirstByte,Top,Width,Height:Integer; Visible:Boolean;
 
@@ -27,7 +37,7 @@ begin
 end;
 
 procedure ShowCursor(X,Y:Integer);
-var Row:array[0..4] of Byte; I,J,P,L,R,B,SourceY:Integer; Mask,C:Byte;
+var Row:array[0..4] of Byte; I,J,P,L,R,B,SourceY:Integer; C:Byte; Pixel:Char;
 begin
   if Visible and (X=SavedX) and (Y=SavedY) then Exit;
   HideCursor;
@@ -45,10 +55,10 @@ begin
     SourceY:=Top+J-Y;
     for P:=L to R do
     begin
-      Mask:=$80 shr (P-X);
-      if (Outline[SourceY] and Mask)<>0 then
+      Pixel:=CursorGlyph[SourceY][P-X+1];
+      if Pixel<>'.' then
       begin
-        if (Inside[SourceY] and Mask)<>0 then C:=0 else C:=15;
+        if Pixel='B' then C:=0 else C:=15;
         I:=P div 2-FirstByte;
         if Odd(P) then Row[I]:=(Row[I] and $F0) or C
         else Row[I]:=(Row[I] and $0F) or (C shl 4);
