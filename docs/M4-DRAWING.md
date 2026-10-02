@@ -10,12 +10,16 @@ integer Bresenham line, so fast brush/eraser drags remain continuous. The
 right mouse button samples document color regardless of the selected tool,
 matching the help. Sampling reads document pixels, never grid/cursor pixels.
 
-The first brush and eraser are opaque, one pixel wide. The eraser writes the
-selected background color, as specified for PP16's M4. Original brush sizes
-1..8, six shapes, strength, and the original normal/color/undo eraser setup
-dialog are deferred. Palette left/right clicks retain PP16's established
-foreground/background roles; Tab or clicking the background box swaps their
-values. This differs from the original's movable Current Colour priority.
+Brush and eraser are opaque square stamps. The size selector directly below the
+tool icons has decrement/increment buttons and supports sizes 1..5; it is
+available for Brush, Eraser, Circle, Square and Line. A stamp is centred on the
+pointer pixel (even sizes extend one extra pixel down and right), clips at the
+document edge, and is frozen at press time with the color. The eraser writes
+the selected background color. Original sizes 6..8, alternate brush shapes,
+strength, and the original normal/color/undo eraser setup dialog remain
+deferred. Palette left/right clicks retain PP16's established foreground/
+background roles; Tab or clicking the background box swaps their values. This
+differs from the original's movable Current Colour priority.
 
 ## Input ownership
 

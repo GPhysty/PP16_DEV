@@ -2,10 +2,23 @@ unit TRaster;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
 type TPlotProc=procedure(X,Y,C:Integer);
+procedure RasterStamp(X,Y,C,Size:Integer; Plot:TPlotProc);
 procedure RasterLine(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 procedure RasterSquare(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 procedure RasterCircle(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 implementation
+
+procedure RasterStamp(X,Y,C,Size:Integer; Plot:TPlotProc);
+var X1,Y1,X2,Y2,PX,PY:Integer;
+begin
+  {A brush is a square stamp centred on its pointer pixel. Even sizes have
+   one extra pixel on the lower/right side, avoiding a hidden half-pixel
+   coordinate.}
+  if Size<1 then Size:=1;
+  X1:=X-(Size-1) div 2; X2:=X+Size div 2;
+  Y1:=Y-(Size-1) div 2; Y2:=Y+Size div 2;
+  for PY:=Y1 to Y2 do for PX:=X1 to X2 do Plot(PX,PY,C);
+end;
 
 procedure RasterLine(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 var DX,DY,SX,SY,E,E2:Integer;

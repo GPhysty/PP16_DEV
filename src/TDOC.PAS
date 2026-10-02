@@ -18,9 +18,10 @@ procedure DocClear(C:Byte);
 procedure InitDemoDoc;
 procedure InitBlankDoc(C:Byte);
 function DocSetPixel(X,Y:Integer; C:Byte):Boolean;
-procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
-procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
-procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure DocBrush(X,Y:Integer; C:Byte; Size:Integer);
+procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
+procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
+procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
 function DocPixel(X,Y:Integer):Byte;
@@ -35,7 +36,7 @@ var Pixels:array[0..DocBytes-1] of Byte;
      6,144 bytes, rather than 8,192 bytes for 4,096 Words. Pixels are changed
      when queued, so no coordinate can be queued more than once.}
     FillStack:array[0..6143] of Byte;
-    FillCount:Word;
+    FillCount:Word; StampSize:Integer;
 
 procedure ResetDirty;
 var Y:Integer;
@@ -178,21 +179,41 @@ begin
   DocSetPixel(X,Y,C);
 end;
 
-procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte);
+function ValidStampSize(Size:Integer):Integer;
+begin
+  if Size<1 then ValidStampSize:=1
+  else if Size>5 then ValidStampSize:=5
+  else ValidStampSize:=Size;
+end;
+
+procedure PlotDocStamp(X,Y,C:Integer);
+begin
+  RasterStamp(X,Y,C,StampSize,PlotDoc);
+end;
+
+procedure DocBrush(X,Y:Integer; C:Byte; Size:Integer);
+begin
+  RasterStamp(X,Y,C,ValidStampSize(Size),PlotDoc);
+end;
+
+procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 begin
   if (X1<0) or (X1>63) or (X2<0) or (X2>63) or
      (Y1<0) or (Y1>63) or (Y2<0) or (Y2>63) then Exit;
-  RasterLine(X1,Y1,X2,Y2,C,PlotDoc);
+  StampSize:=ValidStampSize(Size);
+  RasterLine(X1,Y1,X2,Y2,C,PlotDocStamp);
 end;
 
-procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 begin
-  RasterSquare(X1,Y1,X2,Y2,C,PlotDoc);
+  StampSize:=ValidStampSize(Size);
+  RasterSquare(X1,Y1,X2,Y2,C,PlotDocStamp);
 end;
 
-procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte);
+procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 begin
-  RasterCircle(X1,Y1,X2,Y2,C,PlotDoc);
+  StampSize:=ValidStampSize(Size);
+  RasterCircle(X1,Y1,X2,Y2,C,PlotDocStamp);
 end;
 
 procedure FillPush(P:Word);

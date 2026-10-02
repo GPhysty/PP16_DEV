@@ -2,7 +2,7 @@ unit TUI;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
 uses TMouse;
-var ForeColor,BackColor:Byte; SelectedTool:Integer;
+var ForeColor,BackColor,BrushSize:Byte; SelectedTool:Integer;
 procedure InitUI;
 procedure DrawUI;
 procedure ShowReferenceMenu(M:Integer);
@@ -33,7 +33,7 @@ const ImagePreviewX=236; ImagePreviewY=29;
       ClipPreviewX=236; ClipPreviewY=113; ClipPreviewSize=64;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
-    Gesture:Byte; StrokeColor:Byte; StrokeX,StrokeY:Integer;
+    Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
     ShapeTool:Byte; ShapeX,ShapeY:Integer;
     ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
@@ -107,6 +107,9 @@ begin
   Box(X+1,Y+1,X+16,Y+16,C);
 end;
 
+function ToolUsesBrushSize:Boolean;
+begin ToolUsesBrushSize:=SelectedTool in [3,4,5,6,7] end;
+
 function ToolAtlasPixel(Tool,X,Y:Integer):Byte;
 var A:Word; SX,SY:Integer;
 begin
@@ -153,8 +156,29 @@ begin
   else
   {$endif}
     SmallText(7,64,ToolNames[SelectedTool],15);
-  FillBox(0,71,78,77,0); SmallText(8,72,'SIZE:1',7);
+  FillBox(0,70,78,79,0);
+  Button(2,70,9,9,False); Button(68,70,9,9,False);
+  if ToolUsesBrushSize then
+  begin
+    if BrushSize>1 then SmallText(5,72,'-',4) else SmallText(5,72,'-',8);
+    if BrushSize<5 then SmallText(71,72,'+',4) else SmallText(71,72,'+',8);
+    SmallText(17,72,'SIZE:'+Num(BrushSize),15);
+  end
+  else
+  begin
+    SmallText(5,72,'-',8); SmallText(71,72,'+',8);
+    SmallText(17,72,'SIZE:--',8);
+  end;
   CachedTool:=SelectedTool;
+end;
+
+procedure ChangeBrushSize(Delta:Integer);
+var NewSize:Integer;
+begin
+  if not ToolUsesBrushSize then Exit;
+  NewSize:=Integer(BrushSize)+Delta;
+  if (NewSize<1) or (NewSize>5) then Exit;
+  BrushSize:=NewSize; Tools;
 end;
 
 procedure Colors;
@@ -652,6 +676,7 @@ end;
 
 procedure InitUI;
 begin LoadToolAtlas; InitView; ForeColor:=15; BackColor:=0;
+  BrushSize:=1; StrokeSize:=1;
   StatusValid:=False; ShiftHeld:=False;
   CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
@@ -859,6 +884,15 @@ begin
   end;
   if (Button=1) and (X>=194) and (X<=211) and (Y>=18) and (Y<=25) then
   begin DocUndo; PaintChanges; Exit end;
+  if (X>=0) and (X<=78) and (Y>=70) and (Y<=78) then
+  begin
+    if Button=1 then
+    begin
+      if (X>=2) and (X<=10) then ChangeBrushSize(-1)
+      else if (X>=68) and (X<=76) then ChangeBrushSize(1);
+    end;
+    Exit;
+  end;
   if (X>=2) and (X<78) and (Y>=126) and (Y<186) then
   begin
     if ((X-2) mod 19>=18) or ((Y-126) mod 15>=14) then Exit;
@@ -950,12 +984,17 @@ begin
   end;
 end;
 
+procedure PreviewShapeStamp(X,Y:Integer; C:Integer);
+begin
+  RasterStamp(X,Y,C,StrokeSize,PreviewShapePixel);
+end;
+
 procedure DrawShapeOutline(X,Y:Integer; C:Integer);
 begin
   case ShapeTool of
-    5:RasterCircle(StrokeX,StrokeY,X,Y,C,PreviewShapePixel);
-    6:RasterSquare(StrokeX,StrokeY,X,Y,C,PreviewShapePixel);
-    7:RasterLine(StrokeX,StrokeY,X,Y,C,PreviewShapePixel);
+    5:RasterCircle(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
+    6:RasterSquare(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
+    7:RasterLine(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
   end;
 end;
 
@@ -976,9 +1015,9 @@ begin
   if Gesture=4 then
     if ShapeValid then
       case ShapeTool of
-        5:DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
-        6:DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
-        7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor);
+        5:DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        6:DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
       end;
   if Gesture in [1,4] then DocCommitAction;
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
@@ -1033,8 +1072,8 @@ begin
     Exit;
   end;
   {$endif}
-  if StrokeValid then DocLine(StrokeX,StrokeY,DX,DY,StrokeColor)
-  else DocSetPixel(DX,DY,StrokeColor);
+  if StrokeValid then DocLine(StrokeX,StrokeY,DX,DY,StrokeColor,StrokeSize)
+  else DocBrush(DX,DY,StrokeColor,StrokeSize);
   StrokeX:=DX; StrokeY:=DY; StrokeValid:=True;
 end;
 
@@ -1087,10 +1126,12 @@ begin
     begin
       Gesture:=1; DocBeginAction;
       if SelectedTool=4 then StrokeColor:=BackColor else StrokeColor:=ForeColor;
+      StrokeSize:=BrushSize;
     end
     else if SelectedTool in [5,6,7] then
     begin
       Gesture:=4; ShapeTool:=SelectedTool; StrokeColor:=ForeColor;
+      StrokeSize:=BrushSize;
       StrokeX:=DX; StrokeY:=DY; ShapeX:=DX; ShapeY:=DY; ShapeValid:=True;
       ShapePreviewVisible:=False;
       DocBeginAction;
@@ -1356,6 +1397,14 @@ var F:Word; S:TMouseState; I,X,Y,Z,A,B:Integer; C:Byte; Before:DWord;
 
 begin
   F:=0; ResetTest;
+  Check(BrushSize=1,'default brush size');
+  HandleClick(72,74,1); Check(BrushSize=2,'size selector increments');
+  for I:=1 to 4 do HandleClick(72,74,1);
+  Check(BrushSize=5,'size selector caps at five');
+  HandleClick(6,74,1); Check(BrushSize=4,'size selector decrements');
+  SelectedTool:=2; Tools; HandleClick(72,74,1);
+  Check(BrushSize=4,'size selector ignores unsupported tool');
+  ResetTest;
   Check(not DocSetPixel(-1,0,15),'reject negative pixel');
   Check(not DocSetPixel(64,63,15),'reject out-of-range pixel');
   Check(not DocDirty,'rejected writes stay clean');
@@ -1385,6 +1434,16 @@ begin
     ForeColor:=I; AtDoc(I,2,1); AtDoc(I,2,0);
     Check(DocPixel(I,2)=I,'all sixteen drawing colors');
   end;
+  ResetTest; BrushSize:=3;
+  AtDoc(10,10,1); BrushSize:=5; AtDoc(10,10,0);
+  for Y:=9 to 11 do for X:=9 to 11 do
+    Check(DocPixel(X,Y)=15,'three-pixel brush stamp');
+  Check(DocPixel(12,10)=0,'brush size freezes at press');
+  ResetTest; InitBlankDoc(7); SelectedTool:=4; BackColor:=3; BrushSize:=4;
+  AtDoc(20,20,1); AtDoc(20,20,0);
+  for Y:=19 to 22 do for X:=19 to 22 do
+    Check(DocPixel(X,Y)=3,'four-pixel eraser stamp');
+  Check(DocPixel(18,20)=7,'eraser stamp leaves neighboring pixels');
   ResetTest;
   AtDoc(0,0,1); AtDoc(63,0,1); AtDoc(63,63,1); AtDoc(0,63,1); AtDoc(0,0,0);
   for I:=0 to 63 do
@@ -1397,6 +1456,23 @@ begin
     Check((DocPixel(I,I)=15) and (DocPixel(63-I,I)=15),'fast diagonal continuity');
   SelectedTool:=4; BackColor:=3; AtDoc(0,0,1); AtDoc(63,63,0);
   for I:=0 to 63 do Check(DocPixel(I,I)=3,'eraser uses background color');
+  ResetTest; BrushSize:=3; SelectedTool:=7;
+  AtDoc(10,10,1); AtDoc(15,10,1);
+  Check((DocChecksum=0) and
+        (GetPixel(CanvasX+CanvasImageOffset+(15-PanX)*Zoom,
+                  CanvasY+CanvasImageOffset+(9-PanY)*Zoom)=15),
+        'thick line preview is canvas-only');
+  AtDoc(15,10,0);
+  Check((DocPixel(9,9)=15) and (DocPixel(16,11)=15) and
+        (DocPixel(12,10)=15),'three-pixel line outline');
+  ResetTest; BrushSize:=3; SelectedTool:=6;
+  AtDoc(10,10,1); AtDoc(15,14,0);
+  Check((DocPixel(12,9)=15) and (DocPixel(9,12)=15) and
+        (DocPixel(12,12)=0),'three-pixel square outline');
+  ResetTest; BrushSize:=3; SelectedTool:=5;
+  AtDoc(32,32,1); AtDoc(36,34,0);
+  Check((DocPixel(37,32)=15) and (DocPixel(32,27)=15),
+        'three-pixel circle outline');
   ResetTest;
   SelectedTool:=7; AtDoc(2,2,1); AtDoc(8,5,1);
   Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=15) and

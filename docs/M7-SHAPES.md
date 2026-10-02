@@ -18,6 +18,11 @@ shape, preserves document pixels and retains the previous undo action. A shape
 that changes pixels is one one-level undo action, exactly like a brush stroke;
 right-drag continues to sample a document color for every tool.
 
+The shared size selector supports 1..5-pixel square stamps. Shape outlines use
+the selected size, frozen when the drag begins; the live preview and committed
+outline therefore have the same thickness. Even sizes extend one extra pixel
+down and right of each raster point.
+
 While the button is held, PP16 draws a live outline directly over the canvas.
 Moving the pointer first restores the original canvas and grid, then draws the
 new candidate outline. This overlay does not touch the document or the 1:1
