@@ -6,18 +6,18 @@ procedure HideCursor;
 function CursorOverlaps(X1,Y1,X2,Y2:Integer):Boolean;
 implementation
 uses TVideo;
-const {Cursor glyph: W = white outline, B = black interior, . = transparent.}
+const Ouconst {Cursor glyph: W = white outline, B = black interior, . = transparent.}
       CursorGlyph:array[0..9] of String[8]=
-        ('B.......',
-         'BB......',
-         'BWB.....',
-         'BWWB....',
-         'BWWWB...',
-         'BWWWWB..',
-         'BWWWWBB.',
-         'BWWWWB..',
-         'BB.BWB..',
-         'B...BWB.');
+        ('W.......',
+         'WW......',
+         'WWW.....',
+         'WWWW....',
+         'WWWWW...',
+         'WWWWWW..',
+         'WWWWWWW.',
+         'WWWWW...',
+         'WW.WW...',
+         'W...WW..');
 var Saved:array[0..9,0..4] of Byte;
     SavedX,SavedY,FirstByte,Top,Width,Height:Integer; Visible:Boolean;
 
@@ -59,9 +59,7 @@ begin
       if Pixel<>'.' then
       begin
         if Pixel='B' then C:=0 else C:=15;
-        I:=P div 2-FirstByte;
-        if Odd(P) then Row[I]:=(Row[I] and $F0) or C
-        else Row[I]:=(Row[I] and $0F) or (C shl 4);
+ Row[I]:=(Row[I] and $0F) or (C shl 4);
       end;
     end;
     WriteVideoBytes(FirstByte,Top+J,Width,Row);
