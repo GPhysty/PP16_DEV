@@ -19,10 +19,10 @@ validity metadata. It survives New and Open but is not part of a `.P16` file.
   redrawing the canvas or clipboard image. Opaque paste clips at the 64 by 64
   document edge and is one undoable action. Escape cancels without changing
   pixels or replacing the prior undo action.
-- The button at the right side of the Clipboard panel rotates the session
-  clipboard 90° clockwise before placement. Rotation swaps its width and
-  height, immediately redraws its preview, and never changes the document or
-  undo history.
+- The three buttons at the right side of the Clipboard panel mirror the session
+  clipboard left/right, rotate it 90° clockwise, or flip it top/bottom before
+  placement. Rotation swaps its width and height; every transformation redraws
+  the preview immediately and never changes the document or undo history.
 
 Edit menu availability reflects the selection, clipboard and undo states.
 Right-click remains the universal foreground-color sampler.
@@ -42,8 +42,9 @@ undo and dirty-row tracking.
 
 `check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 harness through the actual
 pointer and keyboard dispatch. It checks Copy neutrality, Cut and undo,
-floating paste movement by arrow and mouse, click placement, and Escape
-cancellation.
+floating paste movement by arrow and mouse, click placement, Escape
+cancellation, and the pixel mapping, preview update and document neutrality of
+mirror, rotate and flip.
 
 The focused run passed at 3,000 cycles/ms in
 `obj/pp16-20260926-091226-732e8a`. The full M1-M9 regression passed at 3,000

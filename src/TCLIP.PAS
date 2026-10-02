@@ -9,7 +9,9 @@ procedure ClearClipboard;
 procedure ClipboardCopy(X,Y,W,H:Integer);
 procedure ClipboardCut(X,Y,W,H:Integer; Background:Byte);
 procedure ClipboardPaste(X,Y:Integer);
+procedure ClipboardMirror;
 procedure ClipboardRotateClockwise;
+procedure ClipboardFlip;
 function ClipboardPixel(X,Y:Integer):Byte;
 implementation
 type TClipPixels=array[0..ClipBytes-1] of Byte;
@@ -91,6 +93,18 @@ begin
   DocCommitAction;
 end;
 
+procedure ClipboardMirror;
+var X,Y,OldWidth,OldHeight:Integer;
+begin
+  if not ClipboardValid then Exit;
+  OldWidth:=ClipboardWidth; OldHeight:=ClipboardHeight;
+  FillChar(RotatePixels,SizeOf(RotatePixels),0);
+  for Y:=0 to OldHeight-1 do for X:=0 to OldWidth-1 do
+    BufferSetPixel(RotatePixels,OldWidth,OldWidth-1-X,Y,
+      BufferPixel(ClipPixels,OldWidth,X,Y));
+  Move(RotatePixels,ClipPixels,ClipBytes);
+end;
+
 procedure ClipboardRotateClockwise;
 var X,Y,OldWidth,OldHeight:Integer;
 begin
@@ -102,6 +116,18 @@ begin
       BufferPixel(ClipPixels,OldWidth,X,Y));
   Move(RotatePixels,ClipPixels,ClipBytes);
   ClipboardWidth:=OldHeight; ClipboardHeight:=OldWidth;
+end;
+
+procedure ClipboardFlip;
+var X,Y,OldWidth,OldHeight:Integer;
+begin
+  if not ClipboardValid then Exit;
+  OldWidth:=ClipboardWidth; OldHeight:=ClipboardHeight;
+  FillChar(RotatePixels,SizeOf(RotatePixels),0);
+  for Y:=0 to OldHeight-1 do for X:=0 to OldWidth-1 do
+    BufferSetPixel(RotatePixels,OldWidth,X,OldHeight-1-Y,
+      BufferPixel(ClipPixels,OldWidth,X,Y));
+  Move(RotatePixels,ClipPixels,ClipBytes);
 end;
 
 end.
