@@ -22,13 +22,15 @@ The current M6 build includes the save/restart fix for DOSBox profiles with
 long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 
 - **Brush** (top row, fourth icon): left-click or drag to paint square strokes.
-- **Eraser** (bottom row, first icon): left-drag with the background color.
+- **Cut** (bottom row, first icon): copies the current rectangular or ellipse
+  selection to the clipboard, then clears it to the background color as one
+  undoable action. The currently selected drawing tool does not change.
 - **Circle, Square, Line** (bottom row, second through fourth icons): drag with
   the foreground color. Circle starts at its centre; Square starts at its first
   corner. Their live canvas outline previews the result before release. Each
   completed shape is one undoable action; Escape cancels it.
 - **Size selector** (below the tool icons): use its - / + buttons to choose a
-  shared 1–5 px square brush for Brush, Eraser, Circle, Square and Line.
+  shared 1–5 px square brush for Brush, Circle, Square and Line.
 - **Bucket Fill** (top row, third icon): left-click a connected area to replace
   it with the foreground color. It is four-connected, respects color borders,
   and is one undoable action.

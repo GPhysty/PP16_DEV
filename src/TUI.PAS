@@ -22,17 +22,17 @@ implementation
 uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
-      ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','ERASER','CIRCLE','SQUARE','LINE');
+      ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','CUT','CIRCLE','SQUARE','LINE');
       MenuX:array[0..5] of Integer=(4,56,108,160,220,284);
-const ImagePreviewX=236; ImagePreviewY=29;
+const ImagePreviewX=233; ImagePreviewY=29;
       ToolAtlasName='PP16UI.P16'; ToolAtlasCell=14; ToolAtlasStep=16;
       ToolAtlasTransparent=11; {Light cyan: icon-cell background / transparent key.}
       EllipseSelectSprite=12;
       NavigationY=161;
       ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=21;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
-      ClipPreviewX=236; ClipPreviewY=113; ClipPreviewSize=64;
-      ClipTransformButtonX=301; ClipTransformButtonSize=18;
+      ClipPreviewX=233; ClipPreviewY=113; ClipPreviewSize=64;
+      ClipTransformButtonX=300; ClipTransformButtonSize=18;
       ClipMirrorButtonY=115; ClipRotateButtonY=136; ClipScaleButtonY=157;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
@@ -94,7 +94,7 @@ begin
 end;
 
 function ToolUsesBrushSize:Boolean;
-begin ToolUsesBrushSize:=SelectedTool in [3,4,5,6,7] end;
+begin ToolUsesBrushSize:=SelectedTool in [3,5,6,7] end;
 
 function ToolIcon(I:Integer):Integer;
 begin
@@ -249,7 +249,7 @@ begin
 end;
 
 procedure Preview;
-var X,Y,X1,Y1,X2,Y2:Integer; Source:TDocRow;
+var X,Y,X1,Y1,X2,Y2,J:Integer; Source:TDocRow; Row:array[0..32] of Byte;
 
   procedure RestorePixel(X,Y:Integer);
   var C:Byte;
@@ -266,14 +266,19 @@ begin
     for X:=PreviewX1 to PreviewX2 do begin RestorePixel(X,PreviewY1); RestorePixel(X,PreviewY2) end;
     for Y:=PreviewY1+1 to PreviewY2-1 do begin RestorePixel(PreviewX1,Y); RestorePixel(PreviewX2,Y) end;
   end else begin
-  SmallText(219,20,'IMAGE:64X64',15); DrawBorder(235,28,300,94,7);
+  SmallText(219,20,'IMAGE:64X64',15);
+  DrawBorder(ImagePreviewX-1,28,ImagePreviewX+64,94,7);
   FillBox(ImagePreviewX,ImagePreviewY,ImagePreviewX+63,ImagePreviewY+63,0);
-  {The 1:1 image begins on an even pixel, exactly matching a packed document
-   row. Copy 32 bytes only: a 33rd byte would overwrite the right panel edge.}
+  {The shifted 1:1 image begins on an odd pixel. Repack each source row across
+   33 video bytes while retaining the two frame-edge nibbles.}
   for Y:=0 to 63 do
   begin
     DocReadRow(Y,Source);
-    WriteVideoBytes(118,ImagePreviewY+Y,32,Source);
+    Row[0]:=$70 or (Source[0] shr 4);
+    for J:=1 to 31 do
+      Row[J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
+    Row[32]:=((Source[31] and $0F) shl 4) or 7;
+    WriteVideoBytes(ImagePreviewX div 2,ImagePreviewY+Y,33,Row);
   end;
   end;
   {The complete image is visible at 1x and 2x, so only 4x/8x need a viewport
@@ -289,7 +294,7 @@ begin
     PreviewValid:=True;
   end
   else PreviewValid:=False;
-  DrawBorder(235,28,300,94,7);
+  DrawBorder(ImagePreviewX-1,28,ImagePreviewX+64,94,7);
 end;
 
 procedure ClipboardPanel;
@@ -298,7 +303,7 @@ var X,Y,OffsetX,OffsetY:Integer; S:String[12];
 {$endif}
 begin
   FillBox(218,101,318,190,0);
-  DrawBorder(235,112,300,178,7);
+  DrawBorder(ClipPreviewX-1,112,ClipPreviewX+64,178,7);
   {$ifdef PP16_CLIP_ENABLED}
   Button(ClipTransformButtonX,ClipMirrorButtonY,ClipTransformButtonSize,
     ClipTransformButtonSize,False);
@@ -980,6 +985,9 @@ begin
       {$ifdef PP16_CLIP_ENABLED}if Button=1 then BeginPaste;{$endif}
       Exit;
     end;
+    {$ifdef PP16_CLIP_ENABLED}
+    if I=4 then begin CutSelection; Exit end;
+    {$endif}
     SelectedTool:=I; Tools; Exit;
   end;
   if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,3,I) then
@@ -1189,10 +1197,10 @@ begin
     begin
       DocFloodFill(DX,DY,ForeColor);
     end
-    else if SelectedTool in [3,4] then
+    else if SelectedTool=3 then
     begin
       Gesture:=1; DocBeginAction;
-      if SelectedTool=4 then StrokeColor:=BackColor else StrokeColor:=ForeColor;
+      StrokeColor:=ForeColor;
       StrokeSize:=BrushSize;
     end
     else if SelectedTool in [5,6,7] then
@@ -1342,10 +1350,10 @@ var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY:Integer; OK:Boolean; C:Byte;
 
   procedure CheckPreviewFrames;
   begin
-    if (GetPixel(235,46)<>7) or (GetPixel(267,28)<>7) or
-       (GetPixel(300,46)<>7) or (GetPixel(267,94)<>7) or
-       (GetPixel(235,130)<>7) or (GetPixel(267,112)<>7) or
-       (GetPixel(300,130)<>7) or (GetPixel(267,178)<>7) then Inc(F);
+    if (GetPixel(ImagePreviewX-1,46)<>7) or (GetPixel(ImagePreviewX+31,28)<>7) or
+       (GetPixel(ImagePreviewX+64,46)<>7) or (GetPixel(ImagePreviewX+31,94)<>7) or
+       (GetPixel(ClipPreviewX-1,130)<>7) or (GetPixel(ClipPreviewX+31,112)<>7) or
+       (GetPixel(ClipPreviewX+64,130)<>7) or (GetPixel(ClipPreviewX+31,178)<>7) then Inc(F);
   end;
 
 begin
@@ -1398,6 +1406,8 @@ begin
   begin
     SetZoom(2 shl I);
     RedrawView; CheckPreviewFrames;
+    if I=0 then for Y:=0 to 63 do for X:=0 to 63 do
+      if GetPixel(ImagePreviewX+X,ImagePreviewY+Y)<>DocPixel(X,Y) then Inc(F);
     if (Zoom<4) and PreviewValid then Inc(F);
     if (Zoom>=4) and not PreviewValid then Inc(F);
   end;
@@ -1431,7 +1441,12 @@ begin
   AtDoc(2,3,1); AtDoc(2,3,0); KeyInput(3,0,0);
   Check(ClipboardValid and (ClipboardPixel(0,0)=5) and (DocChecksum=Before),
         'copy is document-neutral');
-
+  HandleClick(5,40,1);
+  Check((SelectedTool=0) and ClipboardValid and (ClipboardPixel(0,0)=5) and
+        (DocPixel(2,3)=BackColor) and DocCanUndo,
+        'toolbar Cut copies and clears without changing tools');
+  DocUndo;
+  Check(DocChecksum=Before,'toolbar Cut is one undoable action');
 
   KeyInput(22,0,0); KeyInput(0,77,0); AtDoc(63,63,0);
   Check(PasteMode and (PasteX=63) and (PasteY=63) and (DocChecksum=Before),
@@ -1532,11 +1547,6 @@ begin
   for Y:=9 to 11 do for X:=9 to 11 do
     Check(DocPixel(X,Y)=15,'three-pixel brush stamp');
   Check(DocPixel(12,10)=0,'brush size freezes at press');
-  ResetTest; InitBlankDoc(7); SelectedTool:=4; BackColor:=3; BrushSize:=4;
-  AtDoc(20,20,1); AtDoc(20,20,0);
-  for Y:=19 to 22 do for X:=19 to 22 do
-    Check(DocPixel(X,Y)=3,'four-pixel eraser stamp');
-  Check(DocPixel(18,20)=7,'eraser stamp leaves neighboring pixels');
   ResetTest;
   AtDoc(0,0,1); AtDoc(63,0,1); AtDoc(63,63,1); AtDoc(0,63,1); AtDoc(0,0,0);
   for I:=0 to 63 do
@@ -1547,8 +1557,6 @@ begin
   AtDoc(63,0,1); AtDoc(0,63,0);
   for I:=0 to 63 do
     Check((DocPixel(I,I)=15) and (DocPixel(63-I,I)=15),'fast diagonal continuity');
-  SelectedTool:=4; BackColor:=3; AtDoc(0,0,1); AtDoc(63,63,0);
-  for I:=0 to 63 do Check(DocPixel(I,I)=3,'eraser uses background color');
   ResetTest; BrushSize:=3; SelectedTool:=7;
   AtDoc(10,10,1); AtDoc(15,10,1);
   Check((DocChecksum=0) and
@@ -1869,16 +1877,13 @@ begin
   Choose(1,0);
   Check((DocChecksum=0) and not DocDirty,'Edit menu restores document');
 
-  ResetTest; ForeColor:=12; AtDoc(2,2,1); AtDoc(10,10,0);
-  Before:=DocChecksum; SelectedTool:=4; BackColor:=3;
-  AtDoc(2,2,1); AtDoc(10,10,0); DocUndo;
-  Check(DocChecksum=Before,'eraser undoes as one action');
   ResetTest; AtDoc(2,2,1); AtDoc(4,4,0); Before:=DocChecksum;
   AtDoc(20,20,1); AtDoc(40,40,1); PaintChanges;
   KeyInput(27,1,1); PaintChanges;
   Check((DocChecksum=Before) and DocDirty and DocCanUndo,
         'cancel restores dirty image and preserves preceding undo');
-  Check((GetPixel(CanvasX+40,CanvasY+40)=0) and (GetPixel(257,66)=0),
+  Check((GetPixel(CanvasX+40,CanvasY+40)=0) and
+        (GetPixel(ImagePreviewX+21,ImagePreviewY+37)=0),
         'cancel restores canvas and preview');
   AtDoc(50,50,1); AtDoc(50,50,0);
   Check(DocChecksum=Before,'cancel blocks held button until release');

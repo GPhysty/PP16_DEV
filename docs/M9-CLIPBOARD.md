@@ -27,6 +27,8 @@ be saved. Both formats retain verified writes and recoverable overwritten files.
   document or replacing its undo action.
 - **Ctrl+X** or **Edit > Cut** copies first, then replaces selected pixels with
   the current background color as one undoable action.
+- The **Cut toolbar button** performs the same action without changing the
+  currently selected drawing tool.
 - **Ctrl+V** or **Edit > Paste** enters floating placement mode with the
   outline initially centered in the visible canvas. Move it with the mouse or
   arrow keys; left-click or Enter commits. The outline is the only repeated
