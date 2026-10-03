@@ -111,6 +111,7 @@ The pre-fix executable, map and file units remain in
 `obj/before-lfn-fix-20260920-112546`. The corrected EXE is 65,140 bytes, with
 56,562 code bytes and the same 16,094-byte initial near heap. Both
 `out/PP16.EXE` and `out/M6.EXE` contain the corrected build.
+
 ## Current I/O cleanup
 
 Both formats share one reader. Open and save verification read the complete
