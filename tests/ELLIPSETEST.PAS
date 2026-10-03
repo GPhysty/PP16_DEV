@@ -38,7 +38,7 @@ begin
       end;
       Check(ClipboardEllipse);
       DW:=ClipboardWidth; DH:=ClipboardHeight;
-      InitBlankDoc(7); ClipboardPaste(0,0,DW,DH,False,0);
+      InitBlankDoc(7); ClipboardPaste(0,0,False,0);
       for Y:=0 to DH-1 do for X:=0 to DW-1 do
       begin
         SX:=X; SY:=Y;
@@ -51,25 +51,37 @@ begin
       end;
       DocUndo; Check(DocPixel(0,0)=7);
     end;
-    DW:=W; if DW<64 then Inc(DW) else Dec(DW);
-    DH:=H; if DH<64 then Inc(DH) else Dec(DH);
+    DW:=W; if DW<64 then Inc(DW);
+    DH:=H; if DH<64 then Inc(DH);
     InitBlankDoc(0);
     for Y:=0 to H-1 do for X:=0 to W-1 do
       DocSetPixel(X,Y,TestColor(X,Y));
-    ClipboardCopy(0,0,W,H,True);
-    InitBlankDoc(7); ClipboardPaste(0,0,DW,DH,False,0);
+    ClipboardCopy(0,0,W,H,True); ClipboardScale(True);
+    Check((ClipboardWidth=DW) and (ClipboardHeight=DH));
+    InitBlankDoc(7); ClipboardPaste(0,0,False,0);
     for Y:=0 to DH-1 do for X:=0 to DW-1 do
     begin
       SY:=((2*Y+1)*H) div (2*DH);
       C:=7; DL:=EllipseInset(Y,DW,DH); SL:=EllipseInset(SY,W,H);
-      if Inside(X,Y,DW,DH) and (W>2*SL) then
+      while W<=2*SL do
+      begin
+        if SY<H div 2 then Inc(SY) else Dec(SY);
+        SL:=EllipseInset(SY,W,H);
+      end;
+      if Inside(X,Y,DW,DH) then
       begin
         SX:=SL+((2*(X-DL)+1)*(W-2*SL)) div (2*(DW-2*DL));
         C:=TestColor(SX,SY);
       end;
+      if DocPixel(X,Y)<>C then
+        WriteLn('SCALE MISMATCH ',W,'X',H,' -> ',DW,'X',DH,
+          ' AT ',X,',',Y,' GOT ',DocPixel(X,Y),' EXPECTED ',C);
       Check(DocPixel(X,Y)=C);
     end;
     DocUndo; Check(DocPixel(0,0)=7);
+    ClipboardScale(False);
+    if DW>1 then Dec(DW); if DH>1 then Dec(DH);
+    Check((ClipboardWidth=DW) and (ClipboardHeight=DH));
     InitBlankDoc(9); ClipboardCut(0,0,W,H,0,True);
     for Y:=0 to H-1 do for X:=0 to W-1 do
     begin
@@ -79,19 +91,32 @@ begin
     DocUndo; Check(DocPixel(W div 2,H div 2)=9);
   end;
   InitBlankDoc(3); ClipboardCopy(0,0,5,5,True);
-  InitBlankDoc(7); ClipboardPaste(-2,-2,ClipboardWidth,ClipboardHeight,False,0);
+  InitBlankDoc(7); ClipboardPaste(-2,-2,False,0);
   Check(DocPixel(0,0)=3); Check(DocPixel(2,2)=7); Check(DocPixel(3,0)=7);
-  InitBlankDoc(7); ClipboardPaste(61,61,ClipboardWidth,ClipboardHeight,False,0);
+  InitBlankDoc(7); ClipboardPaste(61,61,False,0);
   Check(DocPixel(63,63)=3); Check(DocPixel(61,61)=7);
   InitBlankDoc(3); ClipboardCopy(0,0,5,5,False);
   Check(not ClipboardEllipse);
-  InitBlankDoc(7); ClipboardPaste(0,0,ClipboardWidth,ClipboardHeight,False,0); Check(DocPixel(0,0)=3);
+  InitBlankDoc(7); ClipboardPaste(0,0,False,0); Check(DocPixel(0,0)=3);
   {Paste Behind keys off the caller-selected background, not palette zero.}
   InitBlankDoc(6); DocSetPixel(0,0,9); DocSetPixel(1,0,0); DocSetPixel(2,0,5);
   ClipboardCopy(0,0,3,1,False);
   InitBlankDoc(4); DocSetPixel(10,10,6); DocSetPixel(11,10,6); DocSetPixel(12,10,7);
-  ClipboardPaste(10,10,ClipboardWidth,ClipboardHeight,True,6);
+  ClipboardPaste(10,10,True,6);
   Check(DocPixel(10,10)=9); Check(DocPixel(11,10)=0); Check(DocPixel(12,10)=7);
+  {Rectangle scaling copies palette indices exactly with centered nearest-neighbor.}
+  W:=5; H:=3; InitBlankDoc(0);
+  for Y:=0 to H-1 do for X:=0 to W-1 do
+    DocSetPixel(X,Y,TestColor(X,Y));
+  ClipboardCopy(0,0,W,H,False); ClipboardScale(True);
+  Check((ClipboardWidth=6) and (ClipboardHeight=4));
+  for Y:=0 to 3 do for X:=0 to 5 do
+  begin
+    SX:=((2*X+1)*W) div 12; SY:=((2*Y+1)*H) div 8;
+    Check(ClipboardPixel(X,Y)=TestColor(SX,SY));
+  end;
+  ClipboardScale(False);
+  Check((ClipboardWidth=W) and (ClipboardHeight=H));
   if Failures=0 then WriteLn('ELLIPSE CHECKS PASSED: ',Checks,' checks')
   else WriteLn('ELLIPSE CHECKS FAILED: ',Failures,' of ',Checks);
   if Failures<>0 then Halt(1);

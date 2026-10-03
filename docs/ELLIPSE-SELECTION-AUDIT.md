@@ -4,7 +4,10 @@ Date: 2026-10-02
 
 This audit records the ellipse/scale checkpoint. The subsequent
 [CLP compaction checkpoint](CLP-COMPACTION.md) adds shared native clipboard
-save/load; the latest production build is 64,902 code bytes with 634 bytes free.
+save/load; after simplifying Scale to resize the clipboard itself, the latest
+production build is 64,397 code bytes with 1,139 bytes free after removing the
+redundant Clipboard-panel Paste label, on-canvas Undo control and global
+Save/Open/Undo/Exit shortcuts.
 The size tables below retain their original measurement history.
 
 Status: implemented and compiled on 2026-10-02. The isolated variants remain in
@@ -140,7 +143,7 @@ formulation's failure; it should not be generalized as a compiler defect.
   dimensions, including reflection and rotation relationships.
 - The replacement font table matched every supported and blank entry.
 - The focused M9 UI/clipboard suite passes in real-mode DOSBox.
-- The permanent standalone ellipse/scale harness passes 38,963 real-mode
+- The permanent standalone ellipse/scale harness passes 39,244 real-mode
   checks. It covers 36 size combinations drawn from 1, 2, 5, 6, 9, and 64;
   mirror, rotation and scaling; per-pixel paste results including opaque black;
   cut and undo; clipped pastes; document-neutral copy; shape preservation; and

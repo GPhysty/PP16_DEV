@@ -40,13 +40,15 @@ be saved. Both formats retain verified writes and recoverable overwritten files.
   canvas "behind" color; source black remains an ordinary opaque color.
 - The three buttons at the right side of the Clipboard panel are always visible.
   They mirror the session clipboard left/right, rotate it 90° clockwise, or
-  enter **Scale** placement; clicks do nothing until a clipboard image exists.
-  Mirror and rotation redraw the preview immediately and never change the
-  document or undo history.
-- **Scale** is a non-destructive, two-click resized paste. Click the first
-  destination corner, move to the opposite corner, then click again to commit.
-  It supports independent width and height, uses centered nearest-neighbor
-  sampling, and preserves both Paste Behind and the ellipse mask.
+  scale the clipboard itself; clicks do nothing until a clipboard image exists.
+  Mirror, rotation and scaling redraw the preview immediately and never change
+  the document, selection or undo history.
+- On **Scale**, left-click adds one pixel to both clipboard dimensions and
+  right-click subtracts one pixel from both dimensions. Each dimension is
+  clamped independently to the 1 through 64 pixel range. Scaling uses centered
+  nearest-neighbor sampling and preserves the ellipse mask. Narrow ellipses map
+  to the nearest source row containing interior pixels, preventing black holes
+  where the resized oval gains a new top or bottom pixel.
 
 Edit menu availability reflects the selection, clipboard and undo states.
 Right-click remains the universal foreground-color sampler.
@@ -66,20 +68,20 @@ but paste inclusion comes from geometry rather than color, preserving opaque
 black pixels. Copy retains the packed-row fast path for aligned source rectangles;
 ellipse rows clear only their excluded edge pixels afterward.
 
-Mirror and rotate share one transform traversal. The third button starts a
-separate Scale placement, whose destination outline uses the same restore-aware
-overlay path.
+Mirror and rotate share one transform traversal. Scale uses that existing
+scratch buffer to replace the clipboard with a centered nearest-neighbor copy;
+it does not enter a canvas mode or touch selection state.
 
 ## Validation
 
 `check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 UI/dispatch harness,
 the standalone real-mode ellipse/scale harness and CLP file tests. M9 checks Ctrl-constrained
-selection, Copy neutrality, floating paste, cancellation, and entry to Scale
-placement, extension-based save/open over an edited image, view preservation,
+selection, Copy neutrality, floating paste, cancellation, clipboard grow/shrink,
+extension-based save/open over an edited image, view preservation,
 and pasting/undoing a loaded clip. CLP file tests exercise separate-process
 round trips, malformed files, read-only input, failed writes/renames, and
 independent host-generated files and byte comparisons.
-The separate geometry harness performs 38,963 checks over tiny, rectangular
+The separate geometry harness performs 39,244 checks over tiny, rectangular
 and 64-pixel ellipses, mirror/rotation, nearest-neighbor scaling, clipping,
 undo, opaque black pixels, and switching back to rectangular clipboard semantics.
 
@@ -91,3 +93,13 @@ memory-chain comparisons.
 
 The subsequent shared P16/CLP build passed the full suite in
 `obj/pp16-20261002-230918-993318`; see [compaction measurements](CLP-COMPACTION.md).
+
+The clipboard-only one-pixel Scale revision passed its focused UI, geometry and
+CLP suite in `obj/pp16-20261003-083819-cf9f73`.
+The final revision, including direct rectangular palette-color scaling checks,
+passed all 39,244 geometry checks and the complete M1-M9 suite in
+`obj/pp16-20261003-084037-7a38dc`.
+Removing the redundant Clipboard-panel `CLICK: PASTE` label passed the focused
+suite in `obj/pp16-20261003-085054-42f2fb`.
+The subsequent menu-only shortcut cleanup passed the complete M1-M9 suite in
+`obj/pp16-20261003-093101-3377ec`.

@@ -12,10 +12,17 @@ Measured production builds with the unchanged `-O1 -Os` small-model settings:
 | Prior scale build | 64,541 | 995 |
 | Shared read/verify path and CompareByte loops | 64,250 | 1,286 |
 | Shared P16/CLP workflow | 64,902 | 634 |
+| Scale, redundant controls and shortcut cleanup | 64,397 | 1,139 |
 
 Compaction saved 291 code bytes; the complete feature then added 652, for a
 net increase of 361 bytes. Final EXE size is 69,122 bytes and initialized data
 is 4,112 bytes. Those figures do not include BSS or the 8 KB stack.
+
+The later Scale simplification removed the two-corner placement state machine
+and arbitrary-dimension Paste backend. Its clipboard-only nearest-neighbor
+replacement and later interface cleanup bring the current EXE to 68,432 bytes
+with 3,934 initialized-data bytes: 505 fewer code bytes than the
+original shared P16/CLP checkpoint.
 
 No range/overflow checks were disabled and no file-recovery steps were removed.
 Read and verification now share a 2 KB stack buffer, with header and pixel
@@ -31,5 +38,5 @@ production checks to remain enabled.
 The complete regression suite passed at 3,000 cycles/ms in
 `obj/pp16-20261002-230918-993318`: drawing, undo, mouse/video, UI response,
 file dialogs, production Save/Open sessions, P16/CLP corruption and recovery,
-38,963 ellipse/scale checks, independent file-byte verification, and exact DOS
+39,244 ellipse/scale checks, independent file-byte verification, and exact DOS
 memory-chain restoration. Physical HX acceptance remains a separate check.

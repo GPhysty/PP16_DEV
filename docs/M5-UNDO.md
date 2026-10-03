@@ -1,9 +1,9 @@
 # M5 - undo, cancellation, Clear and New/Exit protection
 
 One completed brush/eraser stroke is one action, including any canvas
-exit/re-entry segments. Backspace, Edit > Undo or the UNDO label restores its
+exit/re-entry segments. Edit > Undo restores its
 previous pixels and dirty flag. Undo consumes its snapshot; there is no redo.
-The label/menu is disabled when no snapshot is available or a stroke is active.
+The menu item is disabled when no snapshot is available or a stroke is active.
 
 Escape during a stroke cancels it, restores the pre-stroke document and dirty
 flag, and blocks painting until all buttons are released. The previous completed
@@ -71,3 +71,7 @@ Focused M5 checks also passed at 750 cycles/ms in
 `obj/pp16-20260919-221131-ab1418`, including exact memory-chain restoration.
 See [M5 test reports](M5-TESTS.txt). Interactive M5 acceptance on the user's
 mouse and physical HX/DOS 3.3 validation remain pending.
+
+The later interface cleanup removed the redundant on-canvas Undo label and its
+click target. Undo is now available through Ctrl+Z and Edit > Undo; Backspace
+remains unassigned so it cannot accidentally alter the image.

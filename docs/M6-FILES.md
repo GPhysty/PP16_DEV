@@ -6,9 +6,9 @@ behavior and requested the next milestone. Their CRT shader/profile is unchanged
 
 ## Workflow
 
-File > Save or Ctrl+S writes the current filename. An unnamed image opens Save
-As; Ctrl+Shift+S and File > Save As always open it. File > Open or Ctrl+O opens
-a filename dialog. New clears the filename. The title shows the filename and
+File > Save writes the current filename. An unnamed image opens Save As;
+File > Save As always opens it. File > Open opens a filename dialog. New clears
+the filename. The title shows the filename and
 an asterisk while the document is dirty. Saving preserves one-level undo;
 undoing away from the saved pixels correctly marks the image dirty again.
 
@@ -29,7 +29,7 @@ image with a `.P16`. Cancel is the default. A failed read leaves the current
 pixels, filename, dirty flag and undo intact. Opening `.CLP` loads only the
 clipboard; Save As with a `.CLP` name saves only the clipboard. Both keep the
 current image and its filename, edits, undo and view. An omitted extension still
-defaults to `.P16`, and Ctrl+S continues to save the current document.
+defaults to `.P16`; File > Save continues to save the current document.
 
 ## Storage and recovery
 
@@ -51,9 +51,9 @@ inside the filename dialog; recoverable I/O errors do not terminate the editor.
 
 ## Verification approach
 
-`check-pp16.ps1 -FileOnly` runs synthetic UI dispatch, actual editor processes
-fed BIOS keystrokes, and independent file tests. A saved image is reopened in a
-new DOS process and all 4,096 pixels are compared. Python independently writes
+`check-pp16.ps1 -FileOnly` runs menu-driven UI dispatch, actual editor processes
+driven through simulated mouse menu clicks, and independent file tests. A saved
+image is reopened in a new DOS process and all 4,096 pixels are compared. Python independently writes
 invalid input fixtures and checks output headers, pixels and retained originals.
 
 Tests cover empty/short/truncated files, wrong signature/version/flags/palette/
@@ -66,9 +66,12 @@ no fault-injection hooks. The DOS memory chain is compared before and after.
 
 The editor and regression harnesses share the same production units. Harnesses
 are separate 8086/small-model EXEs so tests no longer consume the editor's code
-segment. `PPSTART.EXE` additionally executes the actual `PP16.EXE` with queued
-Save/Open/Exit keystrokes; its saved demo is independently checked pixel for pixel.
+segment. `PPSTART.EXE` additionally executes the actual `PP16.EXE` through its
+File menu and filename dialog; its saved demo is independently checked pixel for pixel.
 Physical HX and Microsoft's DOS 3.3 remain separate validation targets.
+
+The menu-only shortcut cleanup passed this full file workflow in
+`obj/pp16-20261003-092556-3e24f4`.
 
 The complete M1-M6 run passed at 3,000 cycles/ms in
 `obj/pp16-20260920-105950-e43f5a`, including exact DOS memory-chain restoration.

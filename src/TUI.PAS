@@ -29,7 +29,7 @@ const ImagePreviewX=236; ImagePreviewY=29;
       ToolAtlasTransparent=11; {Light cyan: icon-cell background / transparent key.}
       EllipseSelectSprite=12;
       NavigationY=161;
-      ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=14;
+      ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=21;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
       ClipPreviewX=236; ClipPreviewY=113; ClipPreviewSize=64;
       ClipTransformButtonX=301; ClipTransformButtonSize=18;
@@ -41,7 +41,7 @@ var OpenMenu:Integer;
     ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
-    PendingCommand:Byte; ConfirmDiscard,PaintedUndo:Boolean;
+    PendingCommand:Byte; ConfirmDiscard:Boolean;
     ToolAtlas:TDocPixels; ToolAtlasLoaded:Boolean;
     CachedTool,CachedFore,CachedBack:Integer;
     PreviewValid:Boolean; PreviewX1,PreviewY1,PreviewX2,PreviewY2:Integer;
@@ -52,15 +52,15 @@ var OpenMenu:Integer;
     StatusValid,ShiftHeld,CtrlHeld,PasteBehind:Boolean;
     StatusValues:array[0..3] of String[2];
 {$ifdef PP16_CLIP_ENABLED}
-    SelectionValid,PasteMode,ScalePaste,ScaleAnchored,EllipseSelectTool,SelectionEllipse:Boolean;
+    SelectionValid,PasteMode,EllipseSelectTool,SelectionEllipse:Boolean;
     SelectionX,SelectionY,SelectionW,SelectionH:Integer;
-    SelectionAnchorX,SelectionAnchorY,PasteX,PasteY,PasteWidth,PasteHeight,
-      PasteMouseX,PasteMouseY,ScaleAnchorX,ScaleAnchorY:Integer;
+    SelectionAnchorX,SelectionAnchorY,PasteX,PasteY,PasteMouseX,PasteMouseY:Integer;
     PasteShown:Boolean;
 {$endif}
 
 procedure PaintChanges; forward;
 procedure StartFileDialog(Saving:Boolean); forward;
+procedure Title; forward;
 {$ifdef PP16_CLIP_ENABLED}
 procedure PreviewShapePixel(X,Y:Integer; C:Integer); forward;
 {$endif}
@@ -213,29 +213,18 @@ begin
 end;
 
 procedure DrawCanvas;
-var X,Y,C,J,R,A,H,Offset:Integer; Col,PairColor,Edge:Byte; Source:TDocRow;
+var X,Y,C,J,R,A,H:Integer; Col,PairColor,Edge:Byte;
     Row,GridRow:array[0..64] of Byte;
 begin
   {Build complete packed rows before touching video RAM. X=85 is odd, so
    each 65-byte row includes the two unchanged border nibbles at 84/213.}
   FillChar(GridRow,SizeOf(GridRow),$88); GridRow[0]:=$78; GridRow[64]:=$87;
   C:=VisibleCells; if C>64 then C:=64;
-  Offset:=CanvasImageOffset;
   Y:=0;
   while Y<128 do
   begin
     Move(GridRow,Row,SizeOf(Row));
-    if Zoom=1 then
-    begin
-      {At 1x, the centered 64x64 image is a direct odd-aligned packed copy.}
-      if (Y>=Offset) and (Y<Offset+64) then
-      begin
-        DocReadRow(PanY+Y-Offset,Source);
-        Row[Offset div 2]:=(Row[Offset div 2] and $F0) or (Source[0] shr 4);
-        for J:=1 to 31 do Row[Offset div 2+J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
-        Row[Offset div 2+32]:=(Row[Offset div 2+32] and $0F) or ((Source[31] and $0F) shl 4);
-      end;
-    end else if PanY+Y div Zoom<64 then
+    if PanY+Y div Zoom<64 then
       for X:=0 to C-1 do
       begin
         Col:=DocPixel(PanX+X,PanY+Y div Zoom);
@@ -255,7 +244,6 @@ begin
   HideCursor;
   FillBox(84,18,213,25,0);
   SmallText(86,20,'GRID:'+Num(C)+'X'+Num(C),15);
-  if DocCanUndo then SmallText(194,20,'UNDO',15) else SmallText(194,20,'UNDO',8);
   HSpan(84,213,28,7); HSpan(84,213,157,7);
   for Y:=0 to 127 do WriteVideoBytes(42,CanvasY+Y,65,CanvasFrame[Y]);
 end;
@@ -334,15 +322,14 @@ begin
   {$else}
   SmallText(219,104,'CLIP: OFF',8);
   {$endif}
-  SmallText(219,183,'CLICK: PASTE',7);
 end;
 
-function ControlHit(X,Y,StartX,Width,Height,Step:Integer; var Index:Integer):Boolean;
+function ControlHit(X,Y,StartX,Width,Height,Step,Count:Integer; var Index:Integer):Boolean;
 begin
   ControlHit:=False;
   if (X<StartX) or (Y<NavigationY) or (Y>=NavigationY+Height) then Exit;
   Index:=(X-StartX) div Step;
-  if (Index<0) or (Index>3) or ((X-StartX) mod Step>=Width) then Exit;
+  if (Index<0) or (Index>=Count) or ((X-StartX) mod Step>=Width) then Exit;
   ControlHit:=True;
 end;
 
@@ -350,8 +337,8 @@ function InNavigationControl(X,Y:Integer):Boolean;
 var I:Integer;
 begin
   InNavigationControl:=ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,
-    ZoomButtonHeight,ZoomButtonStep,I) or
-    ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,I);
+    ZoomButtonHeight,ZoomButtonStep,3,I) or
+    ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,4,I);
 end;
 
 procedure Navigation;
@@ -377,8 +364,8 @@ var I,Z:Integer;
   end;
 
 begin
-  Z:=1;
-  for I:=0 to 3 do begin Button(ZoomButtonX+I*ZoomButtonStep,NavigationY,
+  Z:=2;
+  for I:=0 to 2 do begin Button(ZoomButtonX+I*ZoomButtonStep,NavigationY,
     ZoomButtonWidth,ZoomButtonHeight,Zoom=Z);
     SmallText(ZoomButtonX+(ZoomButtonWidth-7) div 2+I*ZoomButtonStep,
       NavigationY+(ZoomButtonHeight-5) div 2,Num(Z)+'X',4); Z:=Z*2 end;
@@ -404,8 +391,8 @@ var DX,DY,GX,GY,I,J:Integer; V:array[0..3] of String[2]; Changed:Boolean;
 begin
   GX:=-1; GY:=-1;
   if ScreenToDoc(X,Y,DX,DY) then
-  begin GX:=(X-CanvasX-CanvasImageOffset) div Zoom;
-        GY:=(Y-CanvasY-CanvasImageOffset) div Zoom end;
+  begin GX:=(X-CanvasX) div Zoom;
+        GY:=(Y-CanvasY) div Zoom end;
   V[0]:=Coord(GX); V[1]:=Coord(GY); V[2]:=Coord(DX); V[3]:=Coord(DY);
   Changed:=not StatusValid;
   for I:=0 to 3 do if V[I]<>StatusValues[I] then Changed:=True;
@@ -461,7 +448,7 @@ function Shortcut(M,I:Integer):String;
 begin
   Shortcut:='';
   case M of
-    1:case I of 0:Shortcut:='Bksp'; 2:Shortcut:='Ctrl+X'; 3:Shortcut:='Ctrl+C'; 4:Shortcut:='Ctrl+V' end;
+    1:case I of 2:Shortcut:='Ctrl+X'; 3:Shortcut:='Ctrl+C'; 4:Shortcut:='Ctrl+V' end;
     2:if I=0 then Shortcut:='F4';
     3:if I=0 then Shortcut:='Alt+C';
 
@@ -493,11 +480,10 @@ begin
   begin
     FillBox(52,44,268,133,1); DrawBorder(52,44,268,133,9); DrawBorder(55,47,265,130,7);
     Text8(88,52,'PP16 - Help',15);
-    SmallText(64,70,'1/2/4/8: ZOOM  SHIFT+ARROWS: FAST PAN',15);
+    SmallText(64,70,'2/4/8: ZOOM  SHIFT+ARROWS: FAST PAN',15);
     SmallText(64,80,'BRUSH, LINE, SQUARE, CIRCLE: DRAG',15);
     SmallText(64,90,'RIGHT CANVAS DRAG: PICK COLOR',15);
-    SmallText(64,100,'BKSP: UNDO  ESC IN STROKE: CANCEL',14);
-    SmallText(64,108,'CTRL+S: SAVE  CTRL+O: OPEN',14);
+    SmallText(64,100,'ESC IN STROKE: CANCEL',14);
     SmallText(64,116,'ESC OR CLICK: CLOSE',15); Exit;
   end;
   X:=PopupX[OpenMenu]; W:=PopupW[OpenMenu]; H:=MenuRowY(OpenMenu,MenuRows[OpenMenu])+4;
@@ -545,7 +531,7 @@ end;
 procedure ClearSelection;
 begin
   SelectionValid:=False; SelectionEllipse:=False;
-  PasteMode:=False; ScalePaste:=False; ScaleAnchored:=False; PasteShown:=False;
+  PasteMode:=False; PasteShown:=False;
 end;
 
 procedure SetSelection(Ax,Ay,Bx,By:Integer);
@@ -593,8 +579,8 @@ var I,J,K,L,P,N,SX,SY,EX,X1,Y1,X2,Y2,DX,DY:Integer; Shade:Byte;
         begin
           Shade:=DocPixel(DX,DY);
           if GridVisible and (Zoom>=2) and
-           (((PX-CanvasX-CanvasImageOffset) mod Zoom=Zoom-1) or
-            ((PY-CanvasY-CanvasImageOffset) mod Zoom=Zoom-1)) then Shade:=8;
+           (((PX-CanvasX) mod Zoom=Zoom-1) or
+            ((PY-CanvasY) mod Zoom=Zoom-1)) then Shade:=8;
         end;
     end else begin
       Shade:=C;
@@ -611,9 +597,9 @@ begin
     P:=W; L:=EllipseInset(0,W,H);
     for J:=0 to H-1 do begin
       if J=H-1 then N:=W else N:=EllipseInset(J+1,W,H);
-      SX:=CanvasX+CanvasImageOffset+(X+L-PanX)*Zoom;
-      EX:=CanvasX+CanvasImageOffset+(X+W-L-PanX)*Zoom-1;
-      SY:=CanvasY+CanvasImageOffset+(Y+J-PanY)*Zoom;
+      SX:=CanvasX+(X+L-PanX)*Zoom;
+      EX:=CanvasX+(X+W-L-PanX)*Zoom-1;
+      SY:=CanvasY+(Y+J-PanY)*Zoom;
       if SX<=EX then for K:=0 to Zoom-1 do begin BorderPixel(SX,SY+K); BorderPixel(EX,SY+K) end;
       for I:=L to W-1-L do begin
         if (I<P) or (I>=W-P) then for K:=0 to Zoom-1 do
@@ -625,10 +611,10 @@ begin
     end;
     Exit;
   end;
-  X1:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
-  Y1:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
-  X2:=CanvasX+CanvasImageOffset+(X+W-PanX)*Zoom-1;
-  Y2:=CanvasY+CanvasImageOffset+(Y+H-PanY)*Zoom-1;
+  X1:=CanvasX+(X-PanX)*Zoom;
+  Y1:=CanvasY+(Y-PanY)*Zoom;
+  X2:=CanvasX+(X+W-PanX)*Zoom-1;
+  Y2:=CanvasY+(Y+H-PanY)*Zoom-1;
   if (X2<CanvasX) or (Y2<CanvasY) or
      (X1>=CanvasX+CanvasSize) or (Y1>=CanvasY+CanvasSize) then Exit;
   if X1<CanvasX then X1:=CanvasX; if Y1<CanvasY then Y1:=CanvasY;
@@ -644,12 +630,11 @@ begin
   if SelectionValid then
     SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False,SelectionEllipse);
   Tools;
-  PaintedUndo:=DocCanUndo;
 end;
 
 procedure ShowPasteOverlay;
 begin
-  SelectionBorder(PasteX,PasteY,PasteWidth,PasteHeight,14,False,ClipboardEllipse);
+  SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,14,False,ClipboardEllipse);
   PasteShown:=True;
 end;
 
@@ -658,39 +643,30 @@ begin
   if (X=PasteX) and (Y=PasteY) then Exit;
   if PasteShown then
   begin
-    SelectionBorder(PasteX,PasteY,PasteWidth,PasteHeight,0,True,ClipboardEllipse);
+    SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,0,True,ClipboardEllipse);
     PasteShown:=False;
   end;
   PasteX:=X; PasteY:=Y; ShowPasteOverlay;
 end;
 
-procedure MoveScalePaste(X,Y:Integer);
-begin
-  if PasteShown then
-    SelectionBorder(PasteX,PasteY,PasteWidth,PasteHeight,0,True,ClipboardEllipse);
-  if X<ScaleAnchorX then begin PasteX:=X; PasteWidth:=ScaleAnchorX-X+1 end
-  else begin PasteX:=ScaleAnchorX; PasteWidth:=X-ScaleAnchorX+1 end;
-  if Y<ScaleAnchorY then begin PasteY:=Y; PasteHeight:=ScaleAnchorY-Y+1 end
-  else begin PasteY:=ScaleAnchorY; PasteHeight:=Y-ScaleAnchorY+1 end;
-  PasteShown:=False; ShowPasteOverlay;
-end;
-
 procedure CancelPaste;
 begin
   if PasteShown then
-    SelectionBorder(PasteX,PasteY,PasteWidth,PasteHeight,0,True,ClipboardEllipse);
-  PasteShown:=False; PasteMode:=False; ScalePaste:=False; ScaleAnchored:=False;
+    SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,0,True,ClipboardEllipse);
+  PasteShown:=False; PasteMode:=False;
   if SelectionValid then ShowSelectionOverlay;
+  Title;
 end;
 
 procedure CommitPaste(Buttons:Byte);
 begin
   if PasteShown then
-    SelectionBorder(PasteX,PasteY,PasteWidth,PasteHeight,0,True,ClipboardEllipse);
+    SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,0,True,ClipboardEllipse);
   PasteShown:=False;
-  ClipboardPaste(PasteX,PasteY,PasteWidth,PasteHeight,PasteBehind,BackColor);
-  PasteMode:=False; ScalePaste:=False; ScaleAnchored:=False;
+  ClipboardPaste(PasteX,PasteY,PasteBehind,BackColor);
+  PasteMode:=False;
   PointerBlocked:=Buttons<>0;
+  Title;
 end;
 
 procedure CopySelection;
@@ -716,21 +692,11 @@ begin
   if not ClipboardValid then Exit;
   PasteX:=PanX+(VisibleCells-ClipboardWidth) div 2;
   PasteY:=PanY+(VisibleCells-ClipboardHeight) div 2;
-  PasteWidth:=ClipboardWidth; PasteHeight:=ClipboardHeight;
   PasteMouseX:=-1; PasteMouseY:=-1;
   PasteShown:=False; DrawCanvas; ShowPasteOverlay;
-  PasteMode:=True; ScalePaste:=False; ScaleAnchored:=False;
+  PasteMode:=True;
   FillBox(0,192,319,199,1);
   SmallText(3,194,'PASTE: MOVE OR ARROWS ENTER/CLICK: PLACE ESC: CANCEL',14);
-end;
-
-procedure BeginScalePaste;
-begin
-  if not ClipboardValid then Exit;
-  PasteMode:=False; ScalePaste:=True; ScaleAnchored:=False; PasteShown:=False;
-  PasteMouseX:=-1; PasteMouseY:=-1; DrawCanvas;
-  FillBox(0,192,319,199,1);
-  SmallText(3,194,'SCALE: CLICK FIRST CORNER, MOVE, CLICK: PLACE ESC: CANCEL',14);
 end;
 {$endif}
 
@@ -744,17 +710,23 @@ begin LoadToolAtlas; InitView; ForeColor:=15; BackColor:=0;
   ShapePreviewVisible:=False;
   PaintedDirty:=False;
   RepaintedCells:=0;
-  PendingCommand:=0; ConfirmDiscard:=False; PaintedUndo:=False;
+  PendingCommand:=0; ConfirmDiscard:=False;
   {$ifdef PP16_CLIP_ENABLED}ClearClipboard; ClearSelection; EllipseSelectTool:=False;{$endif} PasteBehind:=False;
   ExitRequested:=False; SelectedTool:=3; OpenMenu:=-1; HoverDX:=-1; HoverDY:=-1 end;
 
 procedure Title;
 var S:String[32]; C:Byte;
 begin
+  FillBox(0,192,319,199,1);
+  if not MouseReady then
+  begin
+    SmallText(3,194,'NO MOUSE - 2/4/8 ZOOM - ARROWS PAN - ESC EXIT',14);
+    Exit;
+  end;
   S:=CurrentFile; if S='' then S:='UNTITLED';
   S:='PP16 ['+S+']'; C:=10;
   if DocDirty then begin S:=S+'*'; C:=14 end;
-  FillBox(100,10,213,14,0); SmallText(100,10,S,C);
+  SmallText(3,194,S,C);
 end;
 
 procedure DrawUI;
@@ -766,19 +738,17 @@ begin
   FillBox(0,0,319,199,0); FillBox(0,0,319,7,1);
   Text8(4,0,'File',15); Text8(56,0,'Edit',15); Text8(108,0,'View',15);
   Text8(160,0,'Action',15); Text8(284,0,'Help',15);
-  Title;
   Tools; Colors; DrawCanvas;
   {$ifdef PP16_CLIP_ENABLED}
-  if PasteMode or (ScalePaste and ScaleAnchored) then ShowPasteOverlay
+  if PasteMode then ShowPasteOverlay
   else if SelectionValid then
     SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False,SelectionEllipse);
   {$endif}
   Preview; ClipboardPanel; Navigation; Status(-1,-1);
-  FillBox(0,192,319,199,1);
-  SmallText(3,194,'CTRL+S SAVE  CTRL+O OPEN  BKSP UNDO  ESC EXIT',14);
+  Title;
   CapturePopup; Popup;
   for Y:=0 to 63 do TakeDirtyRow(Y,A,B);
-  PaintedDirty:=DocDirty; PaintedUndo:=DocCanUndo;
+  PaintedDirty:=DocDirty;
   ViewedZoom:=Zoom; ViewedPanX:=PanX; ViewedPanY:=PanY; ViewedGrid:=GridVisible;
 end;
 
@@ -788,7 +758,7 @@ begin
      (ViewedGrid=GridVisible) then Exit;
   DrawCanvas;
   {$ifdef PP16_CLIP_ENABLED}
-  if PasteMode or (ScalePaste and ScaleAnchored) then ShowPasteOverlay
+  if PasteMode then ShowPasteOverlay
   else if SelectionValid then
     SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False,SelectionEllipse);
   {$endif}
@@ -952,8 +922,6 @@ begin
     if I=4 then Exit; {No fixed-64x64 Image menu in M9.}
     SetPopup(I); Exit;
   end;
-  if (Button=1) and (X>=194) and (X<=211) and (Y>=18) and (Y<=25) then
-  begin DocUndo; PaintChanges; Exit end;
   if (X>=0) and (X<=78) and (Y>=70) and (Y<=78) then
   begin
     if Button=1 then
@@ -971,7 +939,7 @@ begin
     Colors; Exit;
   end;
   if (Button in [1,2]) and
-     ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,I) then
+     ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,4,I) then
   begin PanCommand(I,Button=1); Exit end;
   {$ifdef PP16_CLIP_ENABLED}
   if (Button=2) and (X>=2) and (X<20) and (Y>=18) and (Y<36) then
@@ -979,21 +947,27 @@ begin
     EllipseSelectTool:=not EllipseSelectTool; SelectedTool:=0;
     CachedTool:=-1; Tools; Exit;
   end;
+  if (Button in [1,2]) and
+     (X>=ClipTransformButtonX) and (X<ClipTransformButtonX+ClipTransformButtonSize) then
+  begin
+    if (Y>=ClipScaleButtonY) and (Y<ClipScaleButtonY+ClipTransformButtonSize) then
+    begin
+      if ClipboardValid then begin ClipboardScale(Button=1); ClipboardPanel end;
+      Exit
+    end;
+    if Button=1 then
+    begin
+      if (Y>=ClipMirrorButtonY) and (Y<ClipMirrorButtonY+ClipTransformButtonSize) then
+      begin if ClipboardValid then begin ClipboardMirror; ClipboardPanel end; Exit end;
+      if (Y>=ClipRotateButtonY) and (Y<ClipRotateButtonY+ClipTransformButtonSize) then
+      begin if ClipboardValid then begin ClipboardRotateClockwise; ClipboardPanel end; Exit end;
+    end;
+  end;
   {$endif}
   if Button<>1 then Exit;
   if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
   begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
   {$ifdef PP16_CLIP_ENABLED}
-  if (Button=1) and ClipboardValid and
-     (X>=ClipTransformButtonX) and (X<ClipTransformButtonX+ClipTransformButtonSize) then
-  begin
-    if (Y>=ClipMirrorButtonY) and (Y<ClipMirrorButtonY+ClipTransformButtonSize) then
-    begin ClipboardMirror; ClipboardPanel; Exit end;
-    if (Y>=ClipRotateButtonY) and (Y<ClipRotateButtonY+ClipTransformButtonSize) then
-    begin ClipboardRotateClockwise; ClipboardPanel; Exit end;
-    if (Y>=ClipScaleButtonY) and (Y<ClipScaleButtonY+ClipTransformButtonSize) then
-    begin BeginScalePaste; Exit end;
-  end;
   if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
   begin BeginPaste; Exit end;
   {$endif}
@@ -1008,8 +982,8 @@ begin
     end;
     SelectedTool:=I; Tools; Exit;
   end;
-  if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,I) then
-  begin SetZoom(1 shl I); RedrawView end;
+  if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,3,I) then
+  begin SetZoom(2 shl I); RedrawView end;
 end;
 
 procedure PaintChanges;
@@ -1027,8 +1001,8 @@ begin
       if (X>=PanX) and (X<PanX+VisibleCells) and
          (Y>=PanY) and (Y<PanY+VisibleCells) then
       begin
-        SX:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
-        SY:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
+        SX:=CanvasX+(X-PanX)*Zoom;
+        SY:=CanvasY+(Y-PanY)*Zoom;
         FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
         if GridVisible and (Zoom>=2) then
         begin
@@ -1045,7 +1019,7 @@ begin
     end;
   {$ifdef PP16_CLIP_ENABLED}
   if OverlayChanged then
-    if PasteMode or (ScalePaste and ScaleAnchored) then ShowPasteOverlay
+    if PasteMode then ShowPasteOverlay
     else if SelectionValid then
       SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False,SelectionEllipse);
   {$endif}
@@ -1053,12 +1027,6 @@ begin
   begin
     Title;
     PaintedDirty:=DocDirty;
-  end;
-  if DocCanUndo<>PaintedUndo then
-  begin
-    FillBox(194,20,211,24,0);
-    if DocCanUndo then SmallText(194,20,'UNDO',15) else SmallText(194,20,'UNDO',8);
-    PaintedUndo:=DocCanUndo;
   end;
 end;
 
@@ -1070,8 +1038,8 @@ begin
   if (X<PanX) or (X>=PanX+VisibleCells) or
      (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
   if C<0 then C:=DocPixel(X,Y);
-  SX:=CanvasX+CanvasImageOffset+(X-PanX)*Zoom;
-  SY:=CanvasY+CanvasImageOffset+(Y-PanY)*Zoom;
+  SX:=CanvasX+(X-PanX)*Zoom;
+  SY:=CanvasY+(Y-PanY)*Zoom;
   FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
   if GridVisible and (Zoom>=2) then
   begin
@@ -1131,7 +1099,7 @@ begin
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
   PointerBlocked:=Buttons<>0;
   {$ifdef PP16_CLIP_ENABLED}
-  if WasOverlay then begin ShowSelectionOverlay; PaintedUndo:=DocCanUndo end;
+  if WasOverlay then ShowSelectionOverlay;
   {$endif}
 end;
 
@@ -1188,29 +1156,6 @@ begin
         MovePaste(DX-ClipboardWidth div 2,DY-ClipboardHeight div 2);
     end;
     if (S.Pressed and 1)<>0 then CommitPaste(S.Buttons);
-    Exit;
-  end;
-  if ScalePaste then
-  begin
-    if not ScaleAnchored then
-    begin
-      if ((S.Pressed and 1)<>0) and ScreenToDoc(S.X,S.Y,DX,DY) then
-      begin
-        ScaleAnchorX:=DX; ScaleAnchorY:=DY;
-        PasteX:=DX; PasteY:=DY; PasteWidth:=1; PasteHeight:=1;
-        PasteMouseX:=S.X; PasteMouseY:=S.Y;
-        ScaleAnchored:=True; ShowPasteOverlay;
-      end;
-    end
-    else
-    begin
-      if (S.X<>PasteMouseX) or (S.Y<>PasteMouseY) then
-      begin
-        PasteMouseX:=S.X; PasteMouseY:=S.Y;
-        if ScreenToDoc(S.X,S.Y,DX,DY) then MoveScalePaste(DX,DY);
-      end;
-      if (S.Pressed and 1)<>0 then CommitPaste(S.Buttons);
-    end;
     Exit;
   end;
   {$endif}
@@ -1278,7 +1223,7 @@ begin
     Exit;
   end;
   {$ifdef PP16_CLIP_ENABLED}
-  if PasteMode or ScalePaste then
+  if PasteMode then
   begin
     if Key=27 then CancelPaste
     else if PasteMode then
@@ -1309,24 +1254,21 @@ begin
   end;
   if Key=27 then
   begin
-    if OpenMenu>=0 then ClosePopup else RequestCommand(2);
+    if OpenMenu>=0 then ClosePopup
+    else if not MouseReady then RequestCommand(2);
     PointerBlocked:=Buttons<>0; Exit;
   end;
   if PointerBlocked or (Buttons<>0) then Exit;
   if Scan=59 then SetPopup(6)
   else if OpenMenu<0 then
   begin
-    case Key of
-      15:begin RequestCommand(3); Exit end; {Ctrl+O}
-      19:begin
-        if ShiftHeld then StartFileDialog(True) else SaveCurrent;
-        Exit;
-      end; {Ctrl+S / Ctrl+Shift+S}
+    if CtrlHeld and (Scan=44) then DocUndo {Physical Ctrl+Z}
+    else case Key of
+      26:DocUndo; {BIOS ASCII Ctrl+Z}
       {$ifdef PP16_CLIP_ENABLED}
       3:CopySelection; {Ctrl+C}
       {$endif}
-      8:DocUndo;
-      49,50,52,56:begin SetZoom(Key-48); RedrawView end;
+      50,52,56:begin SetZoom(Key-48); RedrawView end;
       9:begin Temp:=ForeColor; ForeColor:=BackColor; BackColor:=Temp; Colors end;
       {$ifdef PP16_CLIP_ENABLED}
       22:BeginPaste; {Ctrl+V}
@@ -1351,8 +1293,8 @@ begin
   FillChar(S,SizeOf(S),0); S.X:=160; S.Y:=100;
   if MouseReady then PollMouse(S);
   Old:=S; Quit:=False; PointerBlocked:=S.Buttons<>0;
-  if MouseReady then ShowCursor(S.X,S.Y)
-  else begin FillBox(0,192,319,199,1); SmallText(3,194,'NO MOUSE - 1/2/4/8 ZOOM - ARROWS PAN - ESC EXIT',14) end;
+  Title;
+  if MouseReady then ShowCursor(S.X,S.Y);
   repeat
     Key:=0; Scan:=0; FillChar(R,SizeOf(R),0); R.AH:=1; Intr($16,R);
     if (R.Flags and $40)=0 then begin R.AH:=0; Intr($16,R); Key:=R.AL; Scan:=R.AH end;
@@ -1371,7 +1313,7 @@ begin
         {Keep the pointer visible during offscreen canvas construction.}
         DeferHide:=(OpenMenu<0) and
           (((Gesture=0) and (S.Buttons=0) and
-            ((Key in [49,50,52,56]) or (Scan in [62,72,75,77,80]))) or
+            ((Key in [50,52,56]) or (Scan in [62,72,75,77,80]))) or
            (Gesture=3) or ((Scan=0) and (Gesture=0) and
             (InNavigationControl(S.X,S.Y) or
              ((S.X>=ImagePreviewX) and (S.X<ImagePreviewX+64) and
@@ -1396,7 +1338,7 @@ end;
 
 {$ifdef PP16_VIEW_TEST}
 function ViewChecks:Word;
-var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY,Offset:Integer; OK:Boolean; C:Byte;
+var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY:Integer; OK:Boolean; C:Byte;
 
   procedure CheckPreviewFrames;
   begin
@@ -1407,7 +1349,7 @@ var Before:DWord; F:Word; Z,I,G,X,Y,DX,DY,Offset:Integer; OK:Boolean; C:Byte;
   end;
 
 begin
-  F:=0; Before:=DocChecksum; Z:=1;
+  F:=0; Before:=DocChecksum; Z:=2;
   repeat
     SetZoom(Z);
     for I:=0 to 1 do
@@ -1415,19 +1357,17 @@ begin
       PanView(-64,-64); if I=1 then PanView(64,64);
       for G:=0 to 1 do begin
       GridVisible:=G=1; DrawCanvas;
-      Offset:=CanvasImageOffset;
       for Y:=0 to 127 do for X:=0 to 127 do
       begin
         OK:=ScreenToDoc(CanvasX+X,CanvasY+Y,DX,DY);
         C:=8;
-        if (X>=Offset) and (Y>=Offset) and
-           (PanX+(X-Offset) div Z<64) and (PanY+(Y-Offset) div Z<64) then
+        if (PanX+X div Z<64) and (PanY+Y div Z<64) then
         begin
-          if (not OK) or (DX<>PanX+(X-Offset) div Z) or
-             (DY<>PanY+(Y-Offset) div Z) then Inc(F);
-          C:=DocPixel(PanX+(X-Offset) div Z,PanY+(Y-Offset) div Z);
+          if (not OK) or (DX<>PanX+X div Z) or
+             (DY<>PanY+Y div Z) then Inc(F);
+          C:=DocPixel(PanX+X div Z,PanY+Y div Z);
           if GridVisible and (Z>=2) and
-             (((X-Offset) mod Z=Z-1) or ((Y-Offset) mod Z=Z-1)) then C:=8;
+             ((X mod Z=Z-1) or (Y mod Z=Z-1)) then C:=8;
         end
         else if OK then Inc(F);
         if GetPixel(CanvasX+X,CanvasY+Y)<>C then Inc(F);
@@ -1442,8 +1382,8 @@ begin
   InitView;
   HandleClick(4,128,1); if ForeColor<>0 then Inc(F);
   HandleClick(62,174,2); if BackColor<>15 then Inc(F);
-  HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>1 then Inc(F);
-  HandleClick(ZoomButtonX+3*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
+  HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>2 then Inc(F);
+  HandleClick(ZoomButtonX+2*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(PanButtonX+PanButtonStep+2,NavigationY+2,1); if PanX<0 then Inc(F);
   HandleClick(5,3,1); HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(5,21,1); if SelectedTool<>0 then Inc(F);
@@ -1454,9 +1394,9 @@ begin
   HandleClick(24,21,1); if SelectedTool<>0 then Inc(F);
   if DocChecksum<>Before then Inc(F);
   InitUI; DrawUI;
-  for I:=0 to 3 do
+  for I:=0 to 2 do
   begin
-    case I of 0:SetZoom(1); 1:SetZoom(2); 2:SetZoom(4); 3:SetZoom(8) end;
+    SetZoom(2 shl I);
     RedrawView; CheckPreviewFrames;
     if (Zoom<4) and PreviewValid then Inc(F);
     if (Zoom>=4) and not PreviewValid then Inc(F);
@@ -1477,8 +1417,8 @@ const ClipFile='UI.CLP';
   begin S.X:=SX; S.Y:=SY; UpdateButtons(Buttons,S); PointerInput(S) end;
 
   procedure AtDoc(DX,DY:Integer; Buttons:Byte);
-  begin Feed(CanvasX+CanvasImageOffset+(DX-PanX)*Zoom,
-             CanvasY+CanvasImageOffset+(DY-PanY)*Zoom,Buttons) end;
+  begin Feed(CanvasX+(DX-PanX)*Zoom,
+             CanvasY+(DY-PanY)*Zoom,Buttons) end;
 
 begin
   F:=0; InitUI; InitBlankDoc(0); SetZoom(2); PanView(-64,-64); DrawUI;
@@ -1501,8 +1441,11 @@ begin
   Check((DocChecksum=Before) and not PasteMode,'Escape cancels floating paste');
 
   HandleClick(ClipTransformButtonX+8,ClipScaleButtonY+8,1);
-  Check(ScalePaste and not ScaleAnchored,'scale button enters resize-paste mode');
-  KeyInput(27,0,0);
+  Check((ClipboardWidth=2) and (ClipboardHeight=2) and
+        (ClipboardPixel(0,0)=5),'left-click Scale enlarges clipboard');
+  HandleClick(ClipTransformButtonX+8,ClipScaleButtonY+8,2);
+  Check((ClipboardWidth=1) and (ClipboardHeight=1) and
+        (ClipboardPixel(0,0)=5),'right-click Scale shrinks clipboard');
   CurrentFile:='CANVAS.P16'; DocBeginAction; DocSetPixel(0,0,9); DocCommitAction;
   Before:=DocChecksum; SetZoom(4); PanView(-64,-64); PanView(2,3); ClearSelection;
   StartFileDialog(True);
@@ -1510,7 +1453,7 @@ begin
   KeyInput(13,0,0);
   Check((OpenMenu=-1) and DocDirty and DocCanUndo and
         (CurrentFile='CANVAS.P16'),'Save As CLP preserves document state');
-  ClearClipboard; KeyInput(15,0,0);
+  ClearClipboard; StartFileDialog(False);
   for I:=1 to Length(ClipFile) do KeyInput(Ord(ClipFile[I]),0,0);
   KeyInput(13,0,0);
   Check((OpenMenu=-1) and ClipboardValid and ClipboardEllipse and
@@ -1536,8 +1479,8 @@ var F:Word; S:TMouseState; I,X,Y,Z,A,B:Integer; C:Byte; Before:DWord;
   begin S.X:=SX; S.Y:=SY; UpdateButtons(Buttons,S); PointerInput(S) end;
 
   procedure AtDoc(DX,DY:Integer; Buttons:Byte);
-  begin Feed(CanvasX+CanvasImageOffset+(DX-PanX)*Zoom,
-             CanvasY+CanvasImageOffset+(DY-PanY)*Zoom,Buttons) end;
+  begin Feed(CanvasX+(DX-PanX)*Zoom,
+             CanvasY+(DY-PanY)*Zoom,Buttons) end;
 
   procedure ResetTest;
   begin
@@ -1609,8 +1552,8 @@ begin
   ResetTest; BrushSize:=3; SelectedTool:=7;
   AtDoc(10,10,1); AtDoc(15,10,1);
   Check((DocChecksum=0) and
-        (GetPixel(CanvasX+CanvasImageOffset+(15-PanX)*Zoom,
-                  CanvasY+CanvasImageOffset+(9-PanY)*Zoom)=15),
+        (GetPixel(CanvasX+(15-PanX)*Zoom,
+                  CanvasY+(9-PanY)*Zoom)=15),
         'thick line preview is canvas-only');
   AtDoc(15,10,0);
   Check((DocPixel(9,9)=15) and (DocPixel(16,11)=15) and
@@ -1672,7 +1615,7 @@ begin
   AtDoc(2,2,1); AtDoc(3,3,3); AtDoc(4,4,2); Before:=DocChecksum;
   AtDoc(30,30,2); AtDoc(30,30,0);
   Check(DocChecksum=Before,'second held button cannot start a new gesture');
-  Z:=1;
+  Z:=2;
   repeat
     ResetTest; SetZoom(Z); PanView(-64,-64);
     AtDoc(0,0,1); AtDoc(0,0,0);
@@ -1722,7 +1665,7 @@ begin
     2:begin HandleClick(24,21,1); HandleClick(8,65,1); HandleClick(8,167,1) end;
     3:begin KeyInput(0,59,0); KeyInput(27,1,0) end;
     4:begin
-        KeyInput(27,1,0); KeyInput(9,15,0); KeyInput(9,15,0); KeyInput(13,28,0);
+        RequestCommand(2); KeyInput(9,15,0); KeyInput(9,15,0); KeyInput(13,28,0);
       end;
     5:begin HandleClick(24,143,1); HandleClick(43,158,2); KeyInput(9,15,0) end;
     6:begin
@@ -1734,7 +1677,7 @@ begin
         HandleClick(125,164,1);
       end;
     8:HandleClick(4,3,1);
-    9:KeyInput(27,1,0);
+    9:RequestCommand(2);
     10:begin
       for I:=0 to 19 do PointerFeedback(CanvasX+I*4,CanvasY+(I div 2)*4);
       HideCursor;
@@ -1822,26 +1765,33 @@ var F:Word; Before:DWord; I:Integer;
     for I:=1 to Length(S) do KeyInput(Ord(S[I]),0,0);
   end;
 
+  procedure Choose(M,N:Integer);
+  begin
+    HandleClick(MenuX[M],3,1);
+    HandleClick(PopupX[M]+14,MenuRowY(M,N)+1,1);
+  end;
+
 begin
   F:=0; InitUI; DrawUI; Before:=DocChecksum;
-  KeyInput(19,31,0); Check(OpenMenu=9,'Save of unnamed image opens dialog');
+  KeyInput(19,31,0); KeyInput(15,24,0);
+  Check(OpenMenu=-1,'removed Save/Open shortcuts do nothing');
+  Choose(0,2); Check(OpenMenu=9,'Save of unnamed image opens dialog');
   HandleClick(210,155,1); Check(DocChecksum=Before,'file dialog blocks canvas');
   TypeName('UITEST'); KeyInput(13,28,0);
   Check((OpenMenu=-1) and (CurrentFile='UITEST.P16') and not DocDirty,'Save adds extension');
   DocBeginAction; DocSetPixel(0,0,12); DocCommitAction; PaintChanges;
-  KeyInput(19,31,0); Check((OpenMenu=-1) and not DocDirty and DocCanUndo,'Save keeps undo');
-  KeyInput(8,14,0); PaintChanges;
+  Choose(0,2); Check((OpenMenu=-1) and not DocDirty and DocCanUndo,'Save keeps undo');
+  Choose(1,0); PaintChanges;
   Check(DocDirty and (DocChecksum=Before),'undo after Save marks restored image dirty');
-  ShiftHeld:=True; KeyInput(19,31,0); ShiftHeld:=False;
-  Check(OpenMenu=9,'Ctrl Shift S opens Save As');
+  Choose(0,3); Check(OpenMenu=9,'File Save As opens dialog');
   KeyInput(13,28,0); KeyInput(13,28,0);
   Check((OpenMenu=9) and DocDirty,'overwrite defaults to Cancel');
   KeyInput(27,1,0); Check((OpenMenu=-1) and DocDirty,'cancel Save As preserves image');
-  KeyInput(15,24,0); Check(OpenMenu=9,'dirty Open first opens file chooser');
+  Choose(0,1); Check(OpenMenu=9,'dirty Open first opens file chooser');
   KeyInput(13,28,0); KeyInput(13,28,0);
   Check((OpenMenu=9) and DocDirty,'default Enter cancels discard confirmation');
   KeyInput(27,1,0); Check((OpenMenu=-1) and DocDirty,'cancel chooser preserves image');
-  KeyInput(15,24,0); TypeName('MISSING'); KeyInput(13,28,0);
+  Choose(0,1); TypeName('MISSING'); KeyInput(13,28,0);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check((OpenMenu=9) and DocDirty and (DocChecksum=Before),'failed Open preserves image');
   TypeName('UITEST'); KeyInput(13,28,0); KeyInput(9,15,0); KeyInput(13,28,0);
@@ -1851,7 +1801,7 @@ begin
   Check(CurrentFile='UICOPY.P16','Save As changes filename');
   HandleClick(4,3,1); HandleClick(16,16,1);
   Check((CurrentFile='') and not DocDirty,'New clears filename');
-  KeyInput(15,24,0); KeyInput(9,15,0); KeyInput(0,79,0); KeyInput(13,28,0);
+  Choose(0,1); KeyInput(9,15,0); KeyInput(0,79,0); KeyInput(13,28,0);
   Check((OpenMenu=-1) and (CurrentFile<>'') and not DocDirty,'keyboard file list opens a file');
   StartFileDialog(False); HandleClick(76,72,1); HandleClick(110,130,1);
   Check((OpenMenu=-1) and (CurrentFile=ToolAtlasName),'mouse file list and OK');
@@ -1891,14 +1841,18 @@ var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
 
 begin
   F:=0; ResetTest;
+  MouseReady:=True; KeyInput(27,1,0);
+  Check(not ExitRequested,'idle Escape is not an exit shortcut'); MouseReady:=False;
   Check(not DocCanUndo,'new document has no undo');
   AtDoc(0,0,1); AtDoc(63,0,1); AtDoc(63,63,1); AtDoc(0,63,0);
   Check(DocCanUndo and DocDirty,'completed long stroke creates undo');
-  KeyInput(8,14,0); PaintChanges;
+  KeyInput(8,14,0);
+  Check(DocCanUndo,'Backspace is not an undo shortcut');
+  CtrlHeld:=True; KeyInput(0,44,0); CtrlHeld:=False; PaintChanges;
   for Y:=0 to 63 do for X:=0 to 63 do
     Check(DocPixel(X,Y)=0,'whole stroke restored pixel exactly');
-  Check(not DocDirty and not DocCanUndo,'undo restores clean flag and consumes snapshot');
-  KeyInput(8,14,0); Check(DocChecksum=0,'second undo does not toggle');
+  Check(not DocDirty and not DocCanUndo,'physical Ctrl+Z restores clean flag and consumes snapshot');
+  DocUndo; Check(DocChecksum=0,'second undo does not toggle');
   AtDoc(10,10,1); AtDoc(10,10,0);
   ForeColor:=12; AtDoc(20,20,1); AtDoc(30,30,0);
   Choose(1,0);
@@ -1912,8 +1866,8 @@ begin
   AtDoc(10,10,2); AtDoc(10,10,0); {Sampler.}
   HandleClick(4,128,1); KeyInput(50,3,0); {Palette and zoom.}
   Check(DocCanUndo,'no-op stroke sampler and view preserve undo');
-  HandleClick(198,21,1);
-  Check((DocChecksum=0) and not DocDirty,'canvas undo button restores document');
+  Choose(1,0);
+  Check((DocChecksum=0) and not DocDirty,'Edit menu restores document');
 
   ResetTest; ForeColor:=12; AtDoc(2,2,1); AtDoc(10,10,0);
   Before:=DocChecksum; SelectedTool:=4; BackColor:=3;
@@ -1968,7 +1922,7 @@ begin
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,0);
   Feed(80,115,1); AtDoc(30,30,1); AtDoc(30,30,0);
   Check((DocChecksum=0) and not DocDirty,'discard click cannot leak into new canvas');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); KeyInput(27,1,0);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check(ExitRequested,'explicit keyboard discard exits');
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);

@@ -8,9 +8,10 @@ var ClipboardValid,ClipboardEllipse:Boolean;
 procedure ClearClipboard;
 procedure ClipboardCopy(X,Y,W,H:Integer; Ellipse:Boolean);
 procedure ClipboardCut(X,Y,W,H:Integer; Background:Byte; Ellipse:Boolean);
-procedure ClipboardPaste(X,Y,W,H:Integer; Behind:Boolean; Background:Byte);
+procedure ClipboardPaste(X,Y:Integer; Behind:Boolean; Background:Byte);
 procedure ClipboardMirror;
 procedure ClipboardRotateClockwise;
+procedure ClipboardScale(Grow:Boolean);
 function ClipboardPixel(X,Y:Integer):Byte;
 procedure ClipboardExport(var Data:TDocPixels);
 procedure ClipboardImport(const Data:TDocPixels; W,H:Integer; Ellipse:Boolean);
@@ -103,32 +104,19 @@ begin
   DocCommitAction;
 end;
 
-procedure ClipboardPaste(X,Y,W,H:Integer; Behind:Boolean; Background:Byte);
-var I,J,L,SourceL,SX,SY:Integer;
+procedure ClipboardPaste(X,Y:Integer; Behind:Boolean; Background:Byte);
+var I,J,L:Integer;
 begin
   if not ClipboardValid then Exit;
-  if (W<1) or (H<1) then Exit;
   Background:=Background and 15;
   DocBeginAction;
-  for J:=0 to H-1 do begin
-    L:=0;
-    SY:=((2*J+1)*ClipboardHeight) div (2*H);
-    SourceL:=0;
-    if ClipboardEllipse then
-    begin
-      L:=EllipseInset(J,W,H);
-      SourceL:=EllipseInset(SY,ClipboardWidth,ClipboardHeight);
-    end;
-    if (not ClipboardEllipse) or (ClipboardWidth>2*SourceL) then
-    for I:=L to W-1-L do
+  for J:=0 to ClipboardHeight-1 do begin
+    L:=0; if ClipboardEllipse then
+      L:=EllipseInset(J,ClipboardWidth,ClipboardHeight);
+    for I:=L to ClipboardWidth-1-L do
     if (X+I>=0) and (Y+J>=0) and (X+I<DocWidth) and (Y+J<DocHeight) then
       if (not Behind) or (DocPixel(X+I,Y+J)=Background) then
-      begin
-        if ClipboardEllipse then
-          SX:=SourceL+((2*(I-L)+1)*(ClipboardWidth-2*SourceL)) div (2*(W-2*L))
-        else SX:=((2*I+1)*ClipboardWidth) div (2*W);
-        DocSetPixel(X+I,Y+J,BufferPixel(ClipPixels,ClipboardWidth,SX,SY));
-      end;
+        DocSetPixel(X+I,Y+J,BufferPixel(ClipPixels,ClipboardWidth,I,J));
   end;
   DocCommitAction;
 end;
@@ -156,4 +144,47 @@ procedure ClipboardMirror;
 begin TransformClipboard(0) end;
 procedure ClipboardRotateClockwise;
 begin TransformClipboard(1) end;
+
+procedure ClipboardScale(Grow:Boolean);
+var X,Y,SX,SY,W,H,NW,NH,L,SourceL:Integer;
+begin
+  if not ClipboardValid then Exit;
+  W:=ClipboardWidth; H:=ClipboardHeight;
+  NW:=W; NH:=H;
+  if Grow then
+  begin
+    if NW<64 then Inc(NW);
+    if NH<64 then Inc(NH);
+  end
+  else
+  begin
+    if NW>1 then Dec(NW);
+    if NH>1 then Dec(NH);
+  end;
+  if (NW=W) and (NH=H) then Exit;
+  FillChar(RotatePixels,SizeOf(RotatePixels),0);
+  for Y:=0 to NH-1 do
+  begin
+    SY:=((2*Y+1)*H) div (2*NH); L:=0; SourceL:=0;
+    if ClipboardEllipse then
+    begin
+      L:=EllipseInset(Y,NW,NH);
+      SourceL:=EllipseInset(SY,W,H);
+      while W<=2*SourceL do
+      begin
+        if SY<H div 2 then Inc(SY) else Dec(SY);
+        SourceL:=EllipseInset(SY,W,H);
+      end;
+    end;
+    for X:=L to NW-1-L do
+    begin
+      if ClipboardEllipse then
+        SX:=SourceL+((2*(X-L)+1)*(W-2*SourceL)) div (2*(NW-2*L))
+      else SX:=((2*X+1)*W) div (2*NW);
+      BufferSetPixel(RotatePixels,NW,X,Y,BufferPixel(ClipPixels,W,SX,SY));
+    end;
+  end;
+  Move(RotatePixels,ClipPixels,ClipBytes);
+  ClipboardWidth:=NW; ClipboardHeight:=NH;
+end;
 end.

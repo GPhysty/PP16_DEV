@@ -17,7 +17,7 @@ hints. Entries that require variable-size images, palette state, animation,
 screen design, printer support, or a separate data format are omitted rather
 than presented as disabled commands. File Exit,
 View Grid and Help work; shortcuts on gray entries describe planned reference
-behavior and are not active. Keys 1/2/4/8 zoom; arrows pan; F4 toggles the
+behavior and are not active. Keys 2/4/8 zoom; arrows pan; F4 toggles the
 grid; F1 opens help. Escape closes a menu before exiting the application.
 A menu dismissal consumes its click. Controls act on a new press, so holding
 a button while moving onto a palette/tool does not select it.

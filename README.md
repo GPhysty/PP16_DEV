@@ -7,9 +7,9 @@ retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
 
-Current M10-start build: **69,122-byte EXE**, with **64,902 code bytes** and
-4,112 initialized-data bytes. It remains within the 64 KB small-model code
-segment (634 bytes of production code headroom). Shared file-read and byte-comparison
+Current M10-start build: **68,432-byte EXE**, with **64,397 code bytes** and
+3,934 initialized-data bytes. It remains within the 64 KB small-model code
+segment (1,139 bytes of production code headroom). Shared file-read and byte-comparison
 code recovered 291 bytes before adding native `.CLP` save/load, for 361 bytes
 of net code growth. Range/overflow checks and verified saves remain enabled.
 The current checkpoint uses
@@ -46,30 +46,31 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 - **Clipboard** (top row, second icon) or its right-hand panel: begin placement
   of the current clipboard image. The panel shows the clipboard at actual size
   and its dimensions. Its right-side mirror, rotate and scale buttons are always
-  visible; they take effect once a clipboard image exists. The Select label
+  visible; Scale left-click adds one pixel to its width and height, while
+  right-click subtracts one. They take effect once a clipboard image exists. The Select label
   shows the current selection dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
-- **1 / 2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
+- **2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
   half the visible view. **F4**: grid; **F1**: help.
 - **On-screen pan arrows**: left-click for half a view, right-click for one pixel.
 - **Click/drag in the image preview**: center the view there; dragging past its
   edges clamps to the image. Escape ends the drag at the current view without
   changing the image or its undo history.
-- **Backspace**, **Edit > Undo**, or the **UNDO** label: undo the last completed
+- **Ctrl+Z / Edit > Undo**: undo the last completed
   stroke or Clear. Undo consumes its snapshot; it does not toggle redo.
 - **Escape during a stroke**: restore the image from before that stroke and
   wait for button release. The preceding completed action's undo is preserved.
 - **Action > Clear / Clear to Colour**: fill with black / foreground color.
   **Alt+C** also clears to black. Clear is undoable.
-- **File > New**: start a blank black image. **File > Exit** or Escape exits.
+- **File > New**: start a blank black image. **File > Exit** exits.
   If there are unsaved changes, choose **Cancel** or **Discard**. Cancel is the
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
-- **Ctrl+S / File > Save**: save the current image; an unnamed image gets a
-  filename dialog. **Ctrl+Shift+S / Save As**: choose a new filename.
+- **File > Save**: save the current image; an unnamed image gets a filename
+  dialog. **File > Save As** chooses a new filename.
 - **Save As `NAME.CLP`**: save the current clipboard, including its dimensions
   and rectangle/ellipse shape. The document filename, unsaved edits and undo stay intact.
-- **Ctrl+O / File > Open**: choose a `.P16` image or `.CLP` clipboard. Loading a
+- **File > Open**: choose a `.P16` image or `.CLP` clipboard. Loading a
   clip preserves the open image and view; use Ctrl+V or the clipboard tools to
   place it. Selecting a `.P16` while the image is dirty offers Cancel or Discard.
   Failed reads preserve the current image and clipboard.

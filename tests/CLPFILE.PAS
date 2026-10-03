@@ -60,7 +60,7 @@ begin
     end;
     FileFault:=0;
     Check(SaveImage('RECT.CLP',True),'confirmed CLP replacement'); Unchanged;
-    ClipboardPaste(10,10,3,2,False,0);
+    ClipboardPaste(10,10,False,0);
     for Y:=0 to 1 do for X:=0 to 2 do Check(DocPixel(10+X,10+Y)=X+3*Y,'paste loaded clip');
     DocUndo; Check(DocChecksum=Before,'undo loaded paste');
   end;
