@@ -68,11 +68,9 @@ procedure DocReplace(const Data:TDocPixels);
 begin Move(Data,Pixels,DocBytes); ResetDirty; MarkAll end;
 
 procedure DocSaved;
-var I:Integer;
 begin
-  DocDirty:=False; UndoDirty:=False;
-  if UndoValid then for I:=0 to DocBytes-1 do
-    if Pixels[I]<>UndoPixels[I] then UndoDirty:=True;
+  DocDirty:=False;
+  UndoDirty:=UndoValid and (CompareByte(Pixels,UndoPixels,DocBytes)<>0);
 end;
 
 procedure DocBeginAction;

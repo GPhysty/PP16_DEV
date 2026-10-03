@@ -4,16 +4,23 @@ interface
 uses TDoc;
 type TFileName=String[12];
 var CurrentFile:TFileName;
+    {Type of the latest normalized I/O request; CurrentFile remains the document.}
+    FileIsClip:Boolean;
     FileError:String[48]; RecoveryPath:String[64];
 {$ifdef PP16_FILE_TEST}var FileFault:Byte;{$endif}
 function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+function ClipName(const Name:String):Boolean;
 function Exists(const Name:String):Boolean;
 function LoadImage(const Name:TFileName):Boolean;
 function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
+{Both entry points dispatch by extension. CLP never changes document state.}
 implementation
-uses Dos;
+uses Dos,TClip;
 type THeader=array[0..19] of Byte;
-var Stage:TDocPixels;
+var Stage:TDocPixels; StageHeader:THeader; StageBytes:Word;
+
+function ClipName(const Name:String):Boolean;
+begin ClipName:=Copy(Name,Length(Name)-3,4)='.CLP' end;
 
 procedure Error(const Message:String; Code:Word);
 var S:String[6];
@@ -25,7 +32,7 @@ end;
 function NormalizeName(const Input:String; var Name:TFileName):Boolean;
 var S,B:String[12]; I,P:Integer;
 begin
-  NormalizeName:=False; FileError:='USE A DOS 8.3 NAME WITH .P16';
+  NormalizeName:=False; FileError:='USE 8.3 NAME WITH .P16 OR .CLP';
   if (Length(Input)=0) or (Length(Input)>12) then Exit;
   S:=Input; P:=0;
   for I:=1 to Length(S) do begin
@@ -34,7 +41,8 @@ begin
     else if not (S[I] in ['A'..'Z','0'..'9','_','-']) then Exit;
   end;
   if P=0 then begin if Length(S)>8 then Exit; S:=S+'.P16'; P:=Length(S)-3 end;
-  if (P<2) or (P>9) or (Length(S)<>P+3) or (Copy(S,P,4)<>'.P16') then Exit;
+  if (P<2) or (P>9) or (Length(S)<>P+3) then Exit;
+  if (Copy(S,P,4)<>'.P16') and not ClipName(S) then Exit;
   B:=Copy(S,1,P-1);
   if (B='CON') or (B='PRN') or (B='AUX') or (B='NUL') then Exit;
   if (Length(B)=4) and (B[4] in ['1'..'9']) and
@@ -46,47 +54,52 @@ function Exists(const Name:String):Boolean;
 var S:SearchRec;
 begin FindFirst(Name,AnyFile,S); Exists:=DosError=0 end;
 
-procedure MakeHeader(var H:THeader);
+procedure MakeHeader(W,H,Flags:Byte);
 begin
-  FillChar(H,SizeOf(H),0);
-  H[0]:=$50; H[1]:=$31; H[2]:=$36; H[3]:=$1A;
-  H[4]:=1; H[6]:=20; H[8]:=64; H[10]:=64; H[17]:=8;
+  FillChar(StageHeader,SizeOf(StageHeader),0);
+  StageHeader[0]:=$50; StageHeader[1]:=$31; StageHeader[2]:=$36;
+  if FileIsClip then begin
+    StageHeader[0]:=$43; StageHeader[1]:=$4C; StageHeader[2]:=$50;
+  end;
+  StageBytes:=((Word(W)+1) div 2)*H;
+  StageHeader[3]:=$1A; StageHeader[4]:=1; StageHeader[6]:=20;
+  StageHeader[8]:=W; StageHeader[10]:=H; StageHeader[12]:=Flags;
+  StageHeader[16]:=Lo(StageBytes); StageHeader[17]:=Hi(StageBytes);
 end;
 
 function ReadImage(const Name:String; Verify:Boolean):Boolean;
-var F:File; H,Expected:THeader; Row:array[0..63] of Byte;
-    E,N:Word; I,J:Integer; Size:LongInt; OK:Boolean; OldMode:Byte;
+var F:File; H:THeader; ReadPixels:TDocPixels;
+    E,N:Word; Size:LongInt; OK:Boolean; OldMode:Byte;
 begin
   ReadImage:=False; Assign(F,Name); OldMode:=FileMode; FileMode:=0;
   {$I-} Reset(F,1); E:=IOResult; {$I+} FileMode:=OldMode;
   if E<>0 then begin Error('CANNOT OPEN FILE',E); Exit end;
   OK:=True;
   {$I-} Size:=FileSize(F); E:=IOResult; {$I+}
-  if (E<>0) or (Size<>2068) then begin Error('WRONG FILE LENGTH',E); OK:=False end;
+  if (E<>0) or (Size<20) then begin Error('WRONG FILE LENGTH',E); OK:=False end;
   if OK then begin
     {$I-} BlockRead(F,H,20,N); E:=IOResult; {$I+}
     if (E<>0) or (N<>20) then begin Error('HEADER READ FAILED',E); OK:=False end;
   end;
   if OK then begin
-    MakeHeader(Expected);
-    for I:=0 to 19 do if H[I]<>Expected[I] then OK:=False;
-    if not OK then Error('NOT A SUPPORTED 64X64 P16 V1 FILE',0);
+    if not Verify then begin
+      if FileIsClip then begin
+        OK:=(H[8] in [1..64]) and (H[10] in [1..64]) and (H[12]<=1);
+        MakeHeader(H[8],H[10],H[12]);
+      end else MakeHeader(64,64,0);
+    end;
+    OK:=OK and (CompareByte(H,StageHeader,SizeOf(H))=0) and (Size=20+LongInt(StageBytes));
+    if not OK then Error('INVALID FILE HEADER OR LENGTH',0);
   end;
-  if OK and not Verify then
-  begin
-    {$I-} BlockRead(F,Stage,DocBytes,N); E:=IOResult; {$I+}
-    if (E<>0) or (N<>DocBytes) then begin Error('PIXEL READ FAILED',E); OK:=False end;
-  end
-  else begin
-    I:=0;
-    while OK and (I<DocBytes) do begin
-      {$I-} BlockRead(F,Row,SizeOf(Row),N); E:=IOResult; {$I+}
-      if (E<>0) or (N<>SizeOf(Row)) then begin Error('PIXEL READ FAILED',E); OK:=False end
-      else begin
-        for J:=0 to 63 do if Row[J]<>Stage[I+J] then OK:=False;
+  if OK then begin
+    FillChar(ReadPixels,SizeOf(ReadPixels),0);
+    {$I-} BlockRead(F,ReadPixels,StageBytes,N); E:=IOResult; {$I+}
+    if (E<>0) or (N<>StageBytes) then begin Error('PIXEL READ FAILED',E); OK:=False end;
+    if OK then begin
+      if Verify then begin
+        OK:=CompareByte(ReadPixels,Stage,StageBytes)=0;
         if not OK then Error('SAVED PIXELS DID NOT VERIFY',0);
-      end;
-      Inc(I,64);
+      end else Move(ReadPixels,Stage,DocBytes);
     end;
   end;
   {$I-} Close(F); E:=IOResult; {$I+}
@@ -99,8 +112,11 @@ var Valid:TFileName;
 begin
   LoadImage:=False; FileError:=''; RecoveryPath:='';
   if not NormalizeName(Name,Valid) then Exit;
+  FileIsClip:=ClipName(Valid);
   if not ReadImage(Valid,False) then Exit;
-  DocReplace(Stage); CurrentFile:=Valid; LoadImage:=True;
+  if FileIsClip then ClipboardImport(Stage,StageHeader[8],StageHeader[10],StageHeader[12]<>0)
+  else begin DocReplace(Stage); CurrentFile:=Valid end;
+  LoadImage:=True;
 end;
 
 function Directory(const Name:String):Boolean;
@@ -145,11 +161,17 @@ begin
 end;
 
 function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
-var Valid:TFileName; TempName,BackupName:String[80]; F:File; H:THeader;
+var Valid:TFileName; TempName,BackupName:String[80]; F:File;
     E,N,Count,CloseError:Word; OldExists,OK:Boolean; S:SearchRec;
 begin
   SaveImage:=False; FileError:=''; RecoveryPath:='';
   if not NormalizeName(Name,Valid) then Exit;
+  FileIsClip:=ClipName(Valid);
+  if FileIsClip then begin
+    if not ClipboardValid then begin Error('CLIPBOARD IS EMPTY',0); Exit end;
+    ClipboardExport(Stage);
+    MakeHeader(ClipboardWidth,ClipboardHeight,Ord(ClipboardEllipse));
+  end else begin DocCopy(Stage); MakeHeader(64,64,0) end;
   FindFirst(Valid,AnyFile,S); OldExists:=DosError=0;
   if OldExists then begin
     if not ReplaceExisting then begin Error('FILE EXISTS - CONFIRM REPLACE',0); Exit end;
@@ -157,16 +179,16 @@ begin
   end;
   if not NewSaveFolder then Exit;
   TempName:=RecoveryPath+'\NEW.TMP'; BackupName:=RecoveryPath+'\'+Valid;
-  DocCopy(Stage); MakeHeader(H); Assign(F,TempName);
+  Assign(F,TempName);
   {$I-} Rewrite(F,1); E:=IOResult; {$I+}
   if E<>0 then begin Error('CANNOT CREATE TEMP FILE',E); Exit end;
-  {$I-} BlockWrite(F,H,SizeOf(H),N); E:=IOResult; {$I+}
-  OK:=(E=0) and (N=SizeOf(H));
+  {$I-} BlockWrite(F,StageHeader,SizeOf(StageHeader),N); E:=IOResult; {$I+}
+  OK:=(E=0) and (N=SizeOf(StageHeader));
   if OK then begin
-    Count:=DocBytes;
-    {$ifdef PP16_FILE_TEST}if FileFault=1 then Count:=DocBytes div 2;{$endif}
+    Count:=StageBytes;
+    {$ifdef PP16_FILE_TEST}if FileFault=1 then Count:=StageBytes div 2;{$endif}
     {$I-} BlockWrite(F,Stage,Count,N); E:=IOResult; {$I+}
-    OK:=(E=0) and (N=DocBytes);
+    OK:=(E=0) and (N=StageBytes);
   end;
   {$I-} Close(F); CloseError:=IOResult; {$I+}
   if (not OK) or (CloseError<>0) then begin
@@ -193,7 +215,8 @@ begin
     end;
     Exit;
   end;
-  CurrentFile:=Valid; DocSaved; SaveImage:=True;
+  if not FileIsClip then begin CurrentFile:=Valid; DocSaved end;
+  SaveImage:=True;
 end;
 begin
   {PP16 accepts DOS 3.3 / 8.3 names only. Keep all runtime file operations on

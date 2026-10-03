@@ -6,7 +6,21 @@ procedure RasterStamp(X,Y,C,Size:Integer; Plot:TPlotProc);
 procedure RasterLine(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 procedure RasterSquare(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 procedure RasterCircle(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
+function EllipseInset(Y,W,H:Integer):Integer;
 implementation
+function EllipseInset(Y,W,H:Integer):Integer;
+{Return the symmetric excluded-pixel count for row Y. Pixel-center geometry
+ keeps marquee, copy, cut and paste on the same integer ellipse.}
+var X,DX,DY:Integer; W2,H2,Limit:DWord;
+begin
+  W2:=DWord(W)*Word(W); H2:=DWord(H)*Word(H);
+  DY:=2*Y+1-H; Limit:=W2*(H2-DWord(DY*DY));
+  X:=0; DX:=W-1;
+  while (X<W div 2) and (DWord(DX*DX)*H2>Limit) do
+  begin Inc(X); Dec(DX,2) end;
+  EllipseInset:=X;
+end;
+
 
 procedure RasterStamp(X,Y,C,Size:Integer; Plot:TPlotProc);
 var X1,Y1,X2,Y2,PX,PY:Integer;

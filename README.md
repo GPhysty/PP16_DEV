@@ -7,12 +7,15 @@ retaining the PIXELplus-style layout and the accepted faster canvas/pointer
 baseline. The 64x64 packed image is editable with one-level undo and can be
 saved as a native `.P16` file.
 
-Current M10-start build: **67,494-byte EXE**, with **60,621 code bytes** and
-6,772 initialized-data bytes. It remains within the 64 KB small-model code
-segment (4,915 bytes of production code headroom). The current checkpoint uses
-FPC `-O1 -Os`, packed 3x5 font glyphs, shared shape rasterizers, incremental
-shape previews, packed-row image-preview drawing, and packed-row clipboard
-copy for aligned selections. It omits the nonfunctional single-image number and
+Current M10-start build: **69,122-byte EXE**, with **64,902 code bytes** and
+4,112 initialized-data bytes. It remains within the 64 KB small-model code
+segment (634 bytes of production code headroom). Shared file-read and byte-comparison
+code recovered 291 bytes before adding native `.CLP` save/load, for 361 bytes
+of net code growth. Range/overflow checks and verified saves remain enabled.
+The current checkpoint uses
+FPC `-O1 -Os`, a packed 3x5 font table, shared line/border/clipboard-transform
+routines, shared shape rasterizers, incremental shape previews, packed-row
+image-preview drawing, and packed-row clipboard copy for aligned selections. the nonfunctional single-image number and
 information panels. See the optimization checkpoint in
 [MILESTONES.md](docs/MILESTONES.md).
 The current M6 build includes the save/restart fix for DOSBox profiles with
@@ -29,15 +32,20 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
 - **Bucket Fill** (top row, third icon): left-click a connected area to replace
   it with the foreground color. It is four-connected, respects color borders,
   and is one undoable action.
-- **Select** (top row, first icon): drag an inclusive rectangle. Its border is
-  an overlay only. **Ctrl+C** copies it; **Ctrl+X** copies then clears it to the
-  background color as one undoable action. **Ctrl+V** opens an opaque floating
-  Paste outline centered in the view: move it with the mouse or arrows, then
-  left-click or press Enter to commit; Escape cancels. Paste clips at the image
-  edge and is one undoable action.
+- **Select** (top row, first icon): drag an inclusive rectangle; hold **Ctrl**
+  while dragging to constrain it to a square. Right-click the button to toggle
+  an ellipse selector; Ctrl-drag then constrains it to a circle. Both shapes use
+  the same one-screen-pixel alternating light/dark-grey marquee. Ellipse Copy,
+  Cut and Paste affect only pixels inside the oval; included black pixels remain
+  opaque. **Ctrl+C** copies it; **Ctrl+X** copies then clears it to the
+  background color as one undoable action. **Ctrl+V** opens a shape-matched
+  floating Paste outline centered in the view: move it with the mouse or arrows,
+  then left-click or press Enter to commit; Escape cancels. Paste clips at the
+  image edge and is one undoable action.
+  **Edit > Paste Behind** restricts a paste to destination pixels matching the currently selected background color; it is a persistent, checked toggle and applies when the floating clip is placed.
 - **Clipboard** (top row, second icon) or its right-hand panel: begin placement
   of the current clipboard image. The panel shows the clipboard at actual size
-  and its dimensions. Its right-side mirror, rotate and flip buttons are always
+  and its dimensions. Its right-side mirror, rotate and scale buttons are always
   visible; they take effect once a clipboard image exists. The Select label
   shows the current selection dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
@@ -59,9 +67,14 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
 - **Ctrl+S / File > Save**: save the current image; an unnamed image gets a
   filename dialog. **Ctrl+Shift+S / Save As**: choose a new filename.
-- **Ctrl+O / File > Open**: open a `.P16` image. Dirty images first offer Cancel
-  or Discard; failed reads preserve the current image. Cancel to save it first.
-- Filename dialogs accept DOS 8.3 names in the current directory and add `.P16`.
+- **Save As `NAME.CLP`**: save the current clipboard, including its dimensions
+  and rectangle/ellipse shape. The document filename, unsaved edits and undo stay intact.
+- **Ctrl+O / File > Open**: choose a `.P16` image or `.CLP` clipboard. Loading a
+  clip preserves the open image and view; use Ctrl+V or the clipboard tools to
+  place it. Selecting a `.P16` while the image is dirty offers Cancel or Discard.
+  Failed reads preserve the current image and clipboard.
+- Filename dialogs list both formats, accept DOS 8.3 names in the current
+  directory and add `.P16` when the extension is omitted.
   Type a name, or choose a listed file. Tab changes fields; arrows/Page Up/Down
   navigate the list; Enter accepts and Escape cancels. Save As replacement
   requires confirmation and defaults to Cancel.
@@ -92,8 +105,8 @@ reports under `obj/pp16-*`, preserving previous runs. The default check uses
 3,000 cycles/ms to finish quickly; the interactive profile uses 750.
 Pass `-UndoOnly -Cycles 750` for focused M5 checks or `-FileOnly -Cycles 750`
 for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests now live in separate DOS harnesses under `obj/checks`, built by
-`build-checks.ps1`. This leaves space for the editor within the small memory
-model's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
+`build-checks.ps1`; focused clipboard UI, file, and ellipse harnesses keep test
+code separate from the editor's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
 `/UNDOTEST` or the legacy demos; the check script selects the correct harness.
 
 `out/PP16.EXE` is the current program; `out/M9.EXE` preserves the accepted

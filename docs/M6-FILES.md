@@ -13,7 +13,7 @@ an asterisk while the document is dirty. Saving preserves one-level undo;
 undoing away from the saved pixels correctly marks the image dirty again.
 
 The blue dialogs follow the reference layout at 320x200. Type an 8.3 filename,
-or select a listed `.P16` file. Tab cycles filename, list, OK and Cancel.
+or select a listed `.P16` or `.CLP` file. Tab cycles filename, list, OK and Cancel.
 Arrows/Page Up/Down move through the list. Home/End move through the filename
 or list; Backspace/Delete edit the filename. Enter accepts, Escape cancels,
 and the corresponding mouse controls work. Up to 64 names are listed; additional
@@ -23,9 +23,13 @@ directory; it does not include a directory browser.
 Save As checks before replacing an existing file and defaults to Cancel.
 Canceling replacement returns to the filename dialog. Save to an already named
 document updates that file directly, retaining its previous version in TRASH.
-New/Open/Exit on a dirty image retain the established Cancel/Discard prompt.
-Cancel to save first. Even after choosing Discard for Open, a canceled dialog or
-failed read leaves the current pixels, filename, dirty flag and undo intact.
+New/Exit on a dirty image retain the established Cancel/Discard prompt.
+Open first selects a filename, then offers Discard only when replacing a dirty
+image with a `.P16`. Cancel is the default. A failed read leaves the current
+pixels, filename, dirty flag and undo intact. Opening `.CLP` loads only the
+clipboard; Save As with a `.CLP` name saves only the clipboard. Both keep the
+current image and its filename, edits, undo and view. An omitted extension still
+defaults to `.P16`, and Ctrl+S continues to save the current document.
 
 ## Storage and recovery
 
@@ -106,7 +110,10 @@ The pre-fix executable, map and file units remain in
 `out/PP16.EXE` and `out/M6.EXE` contain the corrected build.
 ## Current I/O cleanup
 
-Normal `.P16` Open reads the complete 2,048-byte packed payload directly into
-the staging document buffer in one DOS block read. Save verification retains
-its row-by-row comparison against the staged source, so write verification and
-all rollback/recovery behavior remain unchanged.
+Both formats share one reader. Open and save verification read the complete
+bounded payload into a 2,048-byte stack buffer in one DOS block read. Open
+stages it; verification compares it byte-for-byte against the staged source.
+Shared CompareByte calls also replace the header and saved-undo comparison
+loops. This recovered 291 linked code bytes before extending the format, while
+retaining range/overflow checks and rollback/recovery behavior. The stack remains
+8,192 bytes; the additional read buffer is temporary, not another persistent clip.

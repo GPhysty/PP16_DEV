@@ -21,6 +21,7 @@ function SaveArea(X1,Y1,X2,Y2:Integer; var Data:TSavedArea):Boolean;
 procedure RestoreArea(X1,Y1,X2,Y2:Integer; var Data:TSavedArea);
 procedure ReadVideoBytes(XByte,Y,Count:Word; var Data);
 procedure WriteVideoBytes(XByte,Y,Count:Word; var Data);
+procedure DrawBorder(X1,Y1,X2,Y2:Integer; C:Byte);
 implementation
 uses Dos;
 var Lines:array[0..199] of Word;
@@ -143,6 +144,13 @@ end;
 
 function PixelOffset(X,Y:Word):Word;
 begin PixelOffset:=(Y and 3)*8192+(Y shr 2)*160+(X shr 1) end;
+
+procedure DrawBorder(X1,Y1,X2,Y2:Integer; C:Byte);
+var Y:Integer;
+begin
+  HSpan(X1,X2,Y1,C); HSpan(X1,X2,Y2,C);
+  for Y:=Y1+1 to Y2-1 do begin PutPixel(X1,Y,C); PutPixel(X2,Y,C) end;
+end;
 
 procedure EnterGraphics;
 var R:Registers; Y:Word;

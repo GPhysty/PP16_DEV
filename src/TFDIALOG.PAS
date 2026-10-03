@@ -7,17 +7,10 @@ procedure DrawFileDialog;
 function FileKey(Key,Scan:Byte):Byte;
 function FileClick(X,Y:Integer):Byte;
 implementation
-uses Dos,TFiles,TVideo,TFont;
+uses Dos,TFiles,TVideo,TFont,TDoc;
 var Names:array[0..63] of TFileName;
     NameCount,Chosen,Top,Focus,Cursor:Integer;
     Entry:TFileName; SelectAll,ConfirmReplace:Boolean;
-
-procedure Border(X1,Y1,X2,Y2:Integer; C:Byte);
-var Y:Integer;
-begin
-  HSpan(X1,X2,Y1,C); HSpan(X1,X2,Y2,C);
-  for Y:=Y1+1 to Y2-1 do begin PutPixel(X1,Y,C); PutPixel(X2,Y,C) end;
-end;
 
 procedure DrawName;
 var BG,FG:Byte;
@@ -44,26 +37,32 @@ procedure DrawButtons;
 var C:Byte;
 begin
   FillBox(85,125,145,136,7); FillBox(174,125,234,136,7);
-  if ConfirmReplace then SmallText(92,128,'REPLACE',4) else SmallText(110,128,'OK',4);
+  if ConfirmReplace then begin
+    if DialogSaving then SmallText(92,128,'REPLACE',4)
+    else SmallText(92,128,'DISCARD',4);
+  end else SmallText(110,128,'OK',4);
   SmallText(190,128,'CANCEL',4);
-  C:=8; if Focus=2 then C:=4; Border(85,125,145,136,C);
-  C:=8; if Focus=3 then C:=4; Border(174,125,234,136,C);
+  C:=8; if Focus=2 then C:=4; DrawBorder(85,125,145,136,C);
+  C:=8; if Focus=3 then C:=4; DrawBorder(174,125,234,136,C);
 end;
 
 procedure DrawMessage;
 begin
   FillBox(58,115,261,121,1);
-  if ConfirmReplace then SmallText(60,116,'REPLACE '+Entry+'? CANCEL IS DEFAULT.',14)
+  if ConfirmReplace then begin
+    if DialogSaving then SmallText(60,116,'REPLACE '+Entry+'? CANCEL IS DEFAULT.',14)
+    else SmallText(60,116,'DISCARD UNSAVED IMAGE? CANCEL IS DEFAULT.',14);
+  end
   else SmallText(60,116,FileError,14);
 end;
 
 procedure DrawFileDialog;
 begin
-  FillBox(50,36,269,145,1); Border(50,36,269,145,9); Border(53,39,266,142,7);
-  if DialogSaving then Text8(88,43,'Save Image File',15)
-  else Text8(88,43,'Open Image File',15);
+  FillBox(50,36,269,145,1); DrawBorder(50,36,269,145,9); DrawBorder(53,39,266,142,7);
+  if DialogSaving then Text8(88,43,'Save P16 / CLP',15)
+  else Text8(88,43,'Open P16 / CLP',15);
   SmallText(68,58,'FILE',15); DrawName;
-  Border(68,69,258,113,9); DrawList; DrawMessage; DrawButtons;
+  DrawBorder(68,69,258,113,9); DrawList; DrawMessage; DrawButtons;
   SmallText(64,138,'TAB:FIELD ENTER:OK ESC:CANCEL',15);
 end;
 
@@ -73,9 +72,10 @@ begin
   DialogSaving:=Saving; ConfirmReplace:=False; Focus:=0; SelectAll:=True;
   Entry:=CurrentFile; if Entry='' then Entry:='UNTITLED.P16';
   FileError:=''; Cursor:=Length(Entry); NameCount:=0; Chosen:=0; Top:=0;
-  FindFirst('*.P16',AnyFile,S);
+  FindFirst('*.*',AnyFile,S);
   while (DosError=0) and (NameCount<64) do begin
-    if (S.Attr and $18)=0 then begin Names[NameCount]:=S.Name; Inc(NameCount) end;
+    if ((S.Attr and $18)=0) and NormalizeName(S.Name,Temp) and (Temp=S.Name) then
+    begin Names[NameCount]:=Temp; Inc(NameCount) end;
     FindNext(S);
   end;
   for I:=1 to NameCount-1 do begin
@@ -83,6 +83,7 @@ begin
     while (J>0) and (Names[J-1]>Temp) do begin Names[J]:=Names[J-1]; Dec(J) end;
     Names[J]:=Temp;
   end;
+  FileError:='';
 end;
 
 procedure Choose(N:Integer);
@@ -102,7 +103,9 @@ begin
   Submit:=0;
   if not NormalizeName(Entry,Name) then begin DrawMessage; Exit end;
   Entry:=Name;
-  if DialogSaving and not ConfirmReplace and Exists(Name) then begin
+  if not ConfirmReplace and
+     ((DialogSaving and Exists(Name)) or
+      (not DialogSaving and not ClipName(Name) and DocDirty)) then begin
     ConfirmReplace:=True; Focus:=3; DrawFileDialog; Exit;
   end;
   if DialogSaving then OK:=SaveImage(Name,ConfirmReplace) else OK:=LoadImage(Name);

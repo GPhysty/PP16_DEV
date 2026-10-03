@@ -9,7 +9,8 @@ try {
     New-Item -ItemType Directory -Path $runDir | Out-Null
     Copy-Item -LiteralPath out/PP16.EXE,out/PP16UI.P16 -Destination $runDir
     & ./build-checks.ps1
-    Copy-Item -LiteralPath obj/checks/PPTVIDEO.EXE,obj/checks/PPTVIEW.EXE,obj/checks/PPTDRAW.EXE,obj/checks/PPTUNDO.EXE,obj/checks/PPTRESP.EXE,obj/checks/PPTFUI.EXE,obj/checks/PPTCLIP.EXE,obj/checks/PPTFILE.EXE,obj/checks/PPSTART.EXE -Destination $runDir
+    Copy-Item -LiteralPath obj/checks/PPTVIDEO.EXE,obj/checks/PPTVIEW.EXE,obj/checks/PPTDRAW.EXE,obj/checks/PPTUNDO.EXE,obj/checks/PPTRESP.EXE,obj/checks/PPTFUI.EXE,obj/checks/PPTCLIP.EXE,obj/checks/PPTFILE.EXE,obj/checks/PPELLIP.EXE,obj/checks/PPSTART.EXE -Destination $runDir
+    Copy-Item -LiteralPath obj/checks/PPTCLPF.EXE -Destination $runDir
     & './tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe' '-n' '@hx8086.cfg' '-oMEMINFO.EXE' 'src/MEMINFO.PAS' 2>&1 |
         Tee-Object -FilePath obj/monitor.log -Append
     if ($LASTEXITCODE -ne 0) { throw 'Memory diagnostic build failed.' }
@@ -44,8 +45,8 @@ $Settings
         Run-Profile 'undo' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTUNDO /UNDOTEST > UNDO.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('UNDO.TXT','M5 CHECKS PASSED')
     } elseif ($ClipOnly) {
-        Run-Profile 'clip' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTCLIP /CLIPTEST > CLIP.TXT`r`nMEMINFO > AFTER.TXT"
-        $checks = ,@('CLIP.TXT','M9 CHECKS PASSED')
+        Run-Profile 'clip' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTCLIP /CLIPTEST > CLIP.TXT`r`nPPELLIP > ELLIPSE.TXT`r`nMEMINFO > AFTER.TXT"
+        $checks = @(@('CLIP.TXT','M9 CHECKS PASSED'), @('ELLIPSE.TXT','ELLIPSE CHECKS PASSED'))
     } else {
         Run-Profile 'normal' "[dos]`nint33=true" @'
 MEMINFO > BEFORE.TXT
@@ -55,6 +56,7 @@ PPTVIEW /UITEST > VIEW.TXT
 PPTDRAW /DRAWTEST > DRAW.TXT
 PPTUNDO /UNDOTEST > UNDO.TXT
 PPTCLIP /CLIPTEST > CLIP.TXT
+PPELLIP > ELLIPSE.TXT
 PPTRESP /RESP > RESPONSE.TXT
 PPTFUI /FILEUI > FILEUI.TXT
 PPTVIDEO /DUMP > DUMP.TXT
@@ -62,7 +64,7 @@ MEMINFO > AFTER.TXT
 '@
     Run-Profile 'nomouse' "[dos]`nint33=false" 'PPTVIDEO /NTEST > NOMOUSE.TXT'
     Run-Profile 'wrongvid' "[dosbox]`nmachine=svga_s3" 'PP16 /PROBE > WRONGVID.TXT'
-        $checks = @(@('PIXELS.TXT','M1 CHECKS PASSED'), @('MOUSE.TXT','M2 CHECKS PASSED'), @('VIEW.TXT','M3 CHECKS PASSED'), @('DRAW.TXT','M8 CHECKS PASSED'), @('UNDO.TXT','M5 CHECKS PASSED'), @('CLIP.TXT','M9 CHECKS PASSED'), @('RESPONSE.TXT','UI PERF CHECKS PASSED'), @('FILEUI.TXT','M6 UI CHECKS PASSED'), @('DUMP.TXT','M1 CHECKS PASSED'), @('NOMOUSE.TXT','MISSING DRIVER CHECK PASSED'), @('WRONGVID.TXT','REFUSED: Unsupported machine'))
+        $checks = @(@('PIXELS.TXT','M1 CHECKS PASSED'), @('MOUSE.TXT','M2 CHECKS PASSED'), @('VIEW.TXT','M3 CHECKS PASSED'), @('DRAW.TXT','M8 CHECKS PASSED'), @('UNDO.TXT','M5 CHECKS PASSED'), @('CLIP.TXT','M9 CHECKS PASSED'), @('ELLIPSE.TXT','ELLIPSE CHECKS PASSED'), @('RESPONSE.TXT','UI PERF CHECKS PASSED'), @('FILEUI.TXT','M6 UI CHECKS PASSED'), @('DUMP.TXT','M1 CHECKS PASSED'), @('NOMOUSE.TXT','MISSING DRIVER CHECK PASSED'), @('WRONGVID.TXT','REFUSED: Unsupported machine'))
     }
     if ($FileOnly -or -not ($UndoOnly -or $PerfOnly -or $ResponseOnly -or $ClipOnly)) {
         & python -X utf8 tests/filefixtures.py $runDir
@@ -85,6 +87,15 @@ MEMINFO > FILEPOST.TXT
         if ((Get-Content "$runDir/FILEPRE.TXT" -Raw) -ne (Get-Content "$runDir/FILEPOST.TXT" -Raw)) { throw 'File tests changed DOS memory chain.' }
         & python -X utf8 tests/filefixtures.py $runDir verify
         if ($LASTEXITCODE -ne 0) { throw 'Independent file verification failed' }
+    }
+    if ($FileOnly -or $ClipOnly -or -not ($UndoOnly -or $PerfOnly -or $ResponseOnly)) {
+        & python -X utf8 tests/clpfixtures.py $runDir
+        if ($LASTEXITCODE -ne 0) { throw 'CLP fixture setup failed' }
+        Run-Profile 'clpfiles' "[dos]`nint33=true`nlfn=true" "MEMINFO > CLPPRE.TXT`r`nPPTCLPF /WRITE > CLPWRITE.TXT`r`nPPTCLPF /CHECK > CLPCHECK.TXT`r`nMEMINFO > CLPPOST.TXT"
+        $checks += @(@('CLPWRITE.TXT','CLP FILE CHECKS PASSED'), @('CLPCHECK.TXT','CLP FILE CHECKS PASSED'))
+        if ((Get-Content "$runDir/CLPPRE.TXT" -Raw) -ne (Get-Content "$runDir/CLPPOST.TXT" -Raw)) { throw 'CLP tests changed DOS memory chain.' }
+        & python -X utf8 tests/clpfixtures.py $runDir verify
+        if ($LASTEXITCODE -ne 0) { throw 'Independent CLP verification failed' }
     }
     foreach ($pair in $checks) {
         $report = Get-Content -LiteralPath (Join-Path $runDir $pair[0]) -Raw

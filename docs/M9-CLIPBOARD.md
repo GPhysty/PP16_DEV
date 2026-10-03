@@ -1,12 +1,27 @@
 # M9 - selection, Cut, Copy and Paste
 
 The first toolbar control is now **Select**. Dragging on the canvas creates an
-inclusive, document-aligned rectangle. Its alternating dark/light-grey border is an overlay only:
-it never changes image pixels, dirtiness or undo history.
+inclusive, document-aligned rectangle; holding **Ctrl** while dragging constrains
+it to a square. Its alternating dark/light-grey, one-screen-pixel border is an
+overlay only: it never changes image pixels, dirtiness or undo history.
+
+Right-clicking **Select** toggles the button to an ellipse selector. Its drag
+box defines the oval; holding **Ctrl** constrains that box to a square and the
+oval to a circle. Pressing or releasing Ctrl while the pointer is stationary
+updates the active marquee immediately. The ellipse uses the same stippled grey
+marquee as the rectangular selector. Ellipse Copy, Cut and Paste affect only
+pixels whose centers are inside the oval; included palette-zero pixels remain
+opaque black rather than acting as transparency.
 
 The current session has a fixed 2,048-byte conventional-memory clipboard. It
 stores up to a 64 by 64 selection high-nibble-first, with width, height and
-validity metadata. It survives New and Open but is not part of a `.P16` file.
+validity metadata. It survives New and `.P16` Open but is not part of a `.P16` file.
+Use the existing **Save As** dialog with a name such as `SPRITE.CLP` to save it.
+The existing **Open** dialog lists `.CLP` alongside `.P16`; opening a clip
+replaces the clipboard and preserves the open image, undo, unsaved edits and
+view. Paste, mirror, rotate and scale then work normally. Rectangle/ellipse
+shape and opaque black pixels survive the file round trip. Empty clips cannot
+be saved. Both formats retain verified writes and recoverable overwritten files.
 
 - **Ctrl+C** or **Edit > Copy** copies the selection without changing the
   document or replacing its undo action.
@@ -19,39 +34,60 @@ validity metadata. It survives New and Open but is not part of a `.P16` file.
   redrawing the canvas or clipboard image. Opaque paste clips at the 64 by 64
   document edge and is one undoable action. Escape cancels without changing
   pixels or replacing the prior undo action.
+- **Edit > Paste Behind** is a persistent checked toggle. When enabled, a
+  clipboard pixel is written only where the destination currently matches the
+  selected background color. This lets any of PP16's 16 colors serve as the
+  canvas "behind" color; source black remains an ordinary opaque color.
 - The three buttons at the right side of the Clipboard panel are always visible.
-  They mirror the session clipboard left/right, rotate it 90° clockwise, or flip
-  it top/bottom before placement; clicks do nothing until a clipboard image
-  exists. Rotation swaps its width and height; every transformation redraws the
-  preview immediately and never changes the document or undo history.
+  They mirror the session clipboard left/right, rotate it 90° clockwise, or
+  enter **Scale** placement; clicks do nothing until a clipboard image exists.
+  Mirror and rotation redraw the preview immediately and never change the
+  document or undo history.
+- **Scale** is a non-destructive, two-click resized paste. Click the first
+  destination corner, move to the opposite corner, then click again to commit.
+  It supports independent width and height, uses centered nearest-neighbor
+  sampling, and preserves both Paste Behind and the ellipse mask.
 
 Edit menu availability reflects the selection, clipboard and undo states.
 Right-click remains the universal foreground-color sampler.
 
 ## Current implementation note
 
-The clipboard remains a fixed 2,048-byte packed buffer. Copy now takes a
-packed-row path when both the selection origin and width are even: each source
-row is moved directly from the packed document into the clipboard. Odd-aligned
-or odd-width selections retain the pixel-accurate fallback, so selection and
-paste semantics are unchanged. A second 2,048-byte scratch buffer repacks a
-clockwise rotation safely before swapping the clipboard dimensions. Cut and
-Paste continue to use the normal document mutation path to preserve one-level
-undo and dirty-row tracking.
+The clipboard remains a fixed 2,048-byte packed buffer with a second 2,048-byte
+transform scratch buffer. A clipboard-shape Boolean and the existing dimensions
+are sufficient for an axis-aligned ellipse: mirror preserves its shape and
+clockwise rotation swaps its width and height. Scale samples the packed source
+directly, so it needs no third buffer or per-pixel mask.
+
+One shared pixel-center ellipse calculation supplies the included left/right
+bounds of each row. The selection marquee, Copy, Cut, Paste and floating Paste
+outline all use those bounds. Excluded preview corners are cleared for display,
+but paste inclusion comes from geometry rather than color, preserving opaque
+black pixels. Copy retains the packed-row fast path for aligned source rectangles;
+ellipse rows clear only their excluded edge pixels afterward.
+
+Mirror and rotate share one transform traversal. The third button starts a
+separate Scale placement, whose destination outline uses the same restore-aware
+overlay path.
 
 ## Validation
 
-`check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 harness through the actual
-pointer and keyboard dispatch. It checks Copy neutrality, Cut and undo,
-floating paste movement by arrow and mouse, click placement, Escape
-cancellation, always-visible transform buttons, and the pixel mapping, preview
-update and document neutrality of mirror, rotate and flip.
+`check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 UI/dispatch harness,
+the standalone real-mode ellipse/scale harness and CLP file tests. M9 checks Ctrl-constrained
+selection, Copy neutrality, floating paste, cancellation, and entry to Scale
+placement, extension-based save/open over an edited image, view preservation,
+and pasting/undoing a loaded clip. CLP file tests exercise separate-process
+round trips, malformed files, read-only input, failed writes/renames, and
+independent host-generated files and byte comparisons.
+The separate geometry harness performs 38,963 checks over tiny, rectangular
+and 64-pixel ellipses, mirror/rotation, nearest-neighbor scaling, clipping,
+undo, opaque black pixels, and switching back to rectangular clipboard semantics.
 
-The focused run passed at 3,000 cycles/ms in
-`obj/pp16-20260926-091226-732e8a`. The full M1-M9 regression passed at 3,000
-cycles/ms in `obj/pp16-20260926-091250-98e9ee`, including missing-mouse and
-wrong-video profiles, native-file recovery, independent file verification and
-exact DOS memory-chain comparisons.
+The focused suite passed in `obj/pp16-20261002-221719-bc9c9e`. The complete
+M1-M9 regression passed in `obj/pp16-20261002-221828-3a80ca`, including mouse,
+missing-mouse and wrong-video profiles, drawing/undo/UI response, native-file
+recovery, independent file verification, production startup, and exact DOS
+memory-chain comparisons.
 
-The optimized M9 full suite also passed at 3,000 cycles/ms in
-`obj/pp16-20260927-125542-e24c91`.
+The subsequent shared P16/CLP build passed the full suite in
+`obj/pp16-20261002-230918-993318`; see [compaction measurements](CLP-COMPACTION.md).
