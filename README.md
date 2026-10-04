@@ -43,12 +43,13 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   background color as one undoable action. **Ctrl+V** opens a shape-matched
   floating Paste outline centered in the view: move it with the mouse or arrows,
   then left-click or press Enter to commit; Escape cancels. Paste clips at the
-  image edge and is one undoable action.
+  image edge and is one undoable action. Choosing another tool removes the
+  selection marquee without changing the clipboard.
   **Edit > Paste Behind** restricts a paste to destination pixels matching the currently selected background color; it is a persistent, checked toggle and applies when the floating clip is placed.
 - **Clipboard** (top row, second icon) or its right-hand panel: begin placement
   of the current clipboard image. The panel shows the clipboard at actual size
-  and its dimensions. Its right-side mirror, rotate and scale buttons are always
-  visible; Scale left-click adds one pixel to its width and height, while
+  and its dimensions. Its upper-right red **×** clears the clipboard. Its
+  right-side mirror, rotate and scale buttons are always visible; Scale left-click adds one pixel to its width and height, while
   right-click subtracts one. They take effect once a clipboard image exists. The Select label
   shows the current selection dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.

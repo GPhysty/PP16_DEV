@@ -58,7 +58,7 @@ Both timing runs used the same 750-cycle Tandy profile. Baseline:
 `obj/pp16-20260920-070601-8f56bc`. Each tick is approximately 55 ms.
 
 | Interaction | Before, ticks | After, ticks | Approximate speedup |
-|---|---:|---:|---:|
+| --- | ---: | ---: | ---: |
 | File open/close twice | 302 | 42 | 7.2x |
 | Switch six menus, close | 876 | 94 | 9.3x |
 | Choose utility | 151 | 18 | 8.4x |

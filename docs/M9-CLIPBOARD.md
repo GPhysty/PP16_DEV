@@ -23,6 +23,11 @@ view. Paste, mirror, rotate and scale then work normally. Rectangle/ellipse
 shape and opaque black pixels survive the file round trip. Empty clips cannot
 be saved. Both formats retain verified writes and recoverable overwritten files.
 
+Choosing any other drawing tool clears the active selection and restores its
+marquee cells from the document; it does not alter the clipboard. The small red
+**×** above the Clipboard panel's transform buttons clears the session clipboard
+without changing the document, undo history or selection state.
+
 - **Ctrl+C** or **Edit > Copy** copies the selection without changing the
   document or replacing its undo action.
 - **Ctrl+X** or **Edit > Cut** copies first, then replaces selected pixels with
@@ -79,6 +84,7 @@ it does not enter a canvas mode or touch selection state.
 `check-pp16.ps1 -ClipOnly -Cycles 3000` runs the M9 UI/dispatch harness,
 the standalone real-mode ellipse/scale harness and CLP file tests. M9 checks Ctrl-constrained
 selection, Copy neutrality, floating paste, cancellation, clipboard grow/shrink,
+tool-change marquee removal, clipboard clearing,
 extension-based save/open over an edited image, view preservation,
 and pasting/undoing a loaded clip. CLP file tests exercise separate-process
 round trips, malformed files, read-only input, failed writes/renames, and

@@ -32,6 +32,8 @@ const ImagePreviewX=233; ImagePreviewY=29;
       ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=21;
       PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
       ClipPreviewX=233; ClipPreviewY=113; ClipPreviewSize=64;
+      ClipClearButtonX=300; ClipClearButtonY=101;
+      ClipClearButtonWidth=18; ClipClearButtonHeight=10;
       ClipTransformButtonX=300; ClipTransformButtonSize=18;
       ClipMirrorButtonY=115; ClipRotateButtonY=136; ClipScaleButtonY=157;
 var OpenMenu:Integer;
@@ -304,6 +306,18 @@ begin
   DrawBorder(ImagePreviewX-1,28,ImagePreviewX+64,94,7);
 end;
 
+procedure ClipboardClearIcon(X,Y:Integer);
+var I:Integer;
+begin
+  {A compact red X makes the destructive clipboard-only action distinct from
+   the three non-destructive transform controls below it.}
+  for I:=0 to 6 do
+  begin
+    PutPixel(X+I,Y+I,4);
+    PutPixel(X+6-I,Y+I,4);
+  end;
+end;
+
 procedure ClipboardPanel;
 {$ifdef PP16_CLIP_ENABLED}
 var X,Y,OffsetX,OffsetY:Integer; S:String[12];
@@ -312,6 +326,9 @@ begin
   FillBox(218,101,318,190,0);
   DrawBorder(ClipPreviewX-1,112,ClipPreviewX+64,178,7);
   {$ifdef PP16_CLIP_ENABLED}
+  Button(ClipClearButtonX,ClipClearButtonY,ClipClearButtonWidth,
+    ClipClearButtonHeight,False);
+  ClipboardClearIcon(ClipClearButtonX+5,ClipClearButtonY+2);
   Button(ClipTransformButtonX,ClipMirrorButtonY,ClipTransformButtonSize,
     ClipTransformButtonSize,False);
   Button(ClipTransformButtonX,ClipRotateButtonY,ClipTransformButtonSize,
@@ -644,6 +661,13 @@ begin
   Tools;
 end;
 
+procedure DismissSelection;
+begin
+  if SelectionValid then
+    SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,0,True,SelectionEllipse);
+  ClearSelection;
+end;
+
 procedure ShowPasteOverlay;
 begin
   SelectionBorder(PasteX,PasteY,ClipboardWidth,ClipboardHeight,14,False,ClipboardEllipse);
@@ -959,6 +983,12 @@ begin
     EllipseSelectTool:=not EllipseSelectTool; SelectedTool:=0;
     CachedTool:=-1; Tools; Exit;
   end;
+  if (Button=1) and (X>=ClipClearButtonX) and
+     (X<ClipClearButtonX+ClipClearButtonWidth) and
+     (Y>=ClipClearButtonY) and (Y<ClipClearButtonY+ClipClearButtonHeight) then
+  begin
+    ClearClipboard; ClipboardPanel; Exit;
+  end;
   if (Button in [1,2]) and
      (X>=ClipTransformButtonX) and (X<ClipTransformButtonX+ClipTransformButtonSize) then
   begin
@@ -994,6 +1024,9 @@ begin
     end;
     {$ifdef PP16_CLIP_ENABLED}
     if I=4 then begin CutSelection; Exit end;
+    {$endif}
+    {$ifdef PP16_CLIP_ENABLED}
+    if (SelectedTool=0) and (I<>0) then DismissSelection;
     {$endif}
     SelectedTool:=I; Tools; Exit;
   end;
@@ -1478,6 +1511,10 @@ begin
         'toolbar Cut copies and clears without changing tools');
   DocUndo;
   Check(DocChecksum=Before,'toolbar Cut is one undoable action');
+  HandleClick(62,21,1);
+  Check((SelectedTool=3) and not SelectionValid and
+        (GetPixel(CanvasX+10,CanvasY+10)=0),
+        'choosing another tool clears the selection marquee');
 
   KeyInput(22,0,0); KeyInput(0,77,0); AtDoc(63,63,0);
   Check(PasteMode and (PasteX=63) and (PasteY=63) and (DocChecksum=Before),
@@ -1509,6 +1546,10 @@ begin
   KeyInput(22,0,0); KeyInput(13,0,0);
   Check(DocChecksum<>Before,'loaded clip pastes into existing image');
   DocUndo; Check(DocChecksum=Before,'loaded clip paste can be undone');
+  HandleClick(ClipClearButtonX+8,ClipClearButtonY+4,1);
+  Check(not ClipboardValid and (ClipboardWidth=0) and (ClipboardHeight=0) and
+        (DocChecksum=Before),
+        'clipboard clear button discards only the clipboard');
   ClipChecks:=F;
 end;
 {$endif}
