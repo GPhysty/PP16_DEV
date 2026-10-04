@@ -248,8 +248,25 @@ begin
   for Y:=0 to 127 do WriteVideoBytes(42,CanvasY+Y,65,CanvasFrame[Y]);
 end;
 
+procedure PaintPreviewRows;
+var Y,J:Integer; Source:TDocRow; Row:array[0..32] of Byte;
+begin
+  {The preview starts on an odd pixel. Repack each document row into its
+   33-byte video span, including the frame-edge nibbles. This is also used
+   after undo/cancel, when every document row changed at once.}
+  for Y:=0 to 63 do
+  begin
+    DocReadRow(Y,Source);
+    Row[0]:=$70 or (Source[0] shr 4);
+    for J:=1 to 31 do
+      Row[J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
+    Row[32]:=((Source[31] and $0F) shl 4) or 7;
+    WriteVideoBytes(ImagePreviewX div 2,ImagePreviewY+Y,33,Row);
+  end;
+end;
+
 procedure Preview;
-var X,Y,X1,Y1,X2,Y2,J:Integer; Source:TDocRow; Row:array[0..32] of Byte;
+var X,Y,X1,Y1,X2,Y2:Integer;
 
   procedure RestorePixel(X,Y:Integer);
   var C:Byte;
@@ -269,17 +286,7 @@ begin
   SmallText(219,20,'IMAGE:64X64',15);
   DrawBorder(ImagePreviewX-1,28,ImagePreviewX+64,94,7);
   FillBox(ImagePreviewX,ImagePreviewY,ImagePreviewX+63,ImagePreviewY+63,0);
-  {The shifted 1:1 image begins on an odd pixel. Repack each source row across
-   33 video bytes while retaining the two frame-edge nibbles.}
-  for Y:=0 to 63 do
-  begin
-    DocReadRow(Y,Source);
-    Row[0]:=$70 or (Source[0] shr 4);
-    for J:=1 to 31 do
-      Row[J]:=((Source[J-1] and $0F) shl 4) or (Source[J] shr 4);
-    Row[32]:=((Source[31] and $0F) shl 4) or 7;
-    WriteVideoBytes(ImagePreviewX div 2,ImagePreviewY+Y,33,Row);
-  end;
+  PaintPreviewRows;
   end;
   {The complete image is visible at 1x and 2x, so only 4x/8x need a viewport
    indicator. The fixed frame is always painted last after temporary cleanup.}
@@ -999,6 +1006,30 @@ var X,Y,A,B,SX,SY,J,PX1,PY1,PX2,PY2:Integer; C:Byte;
     OverlayChanged:Boolean;
 begin
   if OpenMenu>=0 then Exit;
+  if DocAllDirty then
+  begin
+    {DocUndo and DocCancelAction use MarkAll. Rebuild those complete images
+     with packed scanline writes; ordinary strokes still take the cheaper
+     dirty-cell path below.}
+    DrawCanvas;
+    if PreviewValid then PaintPreviewRows;
+    Preview;
+    for Y:=0 to 63 do TakeDirtyRow(Y,A,B);
+    for Y:=PanY to PanY+VisibleCells-1 do
+      for X:=PanX to PanX+VisibleCells-1 do
+        if RepaintedCells<65535 then Inc(RepaintedCells);
+    {$ifdef PP16_CLIP_ENABLED}
+    if PasteMode then ShowPasteOverlay
+    else if SelectionValid then
+      SelectionBorder(SelectionX,SelectionY,SelectionW,SelectionH,14,False,SelectionEllipse);
+    {$endif}
+    if DocDirty<>PaintedDirty then
+    begin
+      Title;
+      PaintedDirty:=DocDirty;
+    end;
+    Exit;
+  end;
   OverlayChanged:=False;
   PX1:=PanX-1; PY1:=PanY-1; PX2:=PanX+VisibleCells; PY2:=PanY+VisibleCells;
   if PX2>64 then PX2:=64; if PY2>64 then PY2:=64;
@@ -1858,7 +1889,13 @@ begin
   Check(DocCanUndo,'Backspace is not an undo shortcut');
   CtrlHeld:=True; KeyInput(0,44,0); CtrlHeld:=False; PaintChanges;
   for Y:=0 to 63 do for X:=0 to 63 do
+  begin
     Check(DocPixel(X,Y)=0,'whole stroke restored pixel exactly');
+    Check(GetPixel(CanvasX+X*2,CanvasY+Y*2)=0,
+          'undo scanline redraw restores every canvas cell');
+    Check(GetPixel(ImagePreviewX+X,ImagePreviewY+Y)=0,
+          'undo scanline redraw restores every preview pixel');
+  end;
   Check(not DocDirty and not DocCanUndo,'physical Ctrl+Z restores clean flag and consumes snapshot');
   DocUndo; Check(DocChecksum=0,'second undo does not toggle');
   AtDoc(10,10,1); AtDoc(10,10,0);

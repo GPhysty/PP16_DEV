@@ -33,6 +33,10 @@ not the editor's document or undo semantics.
   row into the preview's 33 odd-aligned video bytes. This replaces 4,096
   individual pixel writes with 64 row writes; incremental preview updates are
   unchanged.
+- Undo and canceled gestures mark every document row dirty. The change painter
+  recognizes that complete-image case and uses the packed canvas and preview
+  scanline renderers, rather than treating the restore as 4,096 incremental
+  cell updates.
 - At 1x zoom, full canvas construction likewise packs each visible document
   row directly into its odd-aligned canvas buffer. Higher zoom levels retain
   their scale/grid-aware renderer.

@@ -24,6 +24,7 @@ procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
+function DocAllDirty:Boolean;
 function DocPixel(X,Y:Integer):Byte;
 function DocChecksum:DWord;
 implementation
@@ -275,6 +276,18 @@ begin
   X1:=DirtyFirst[Y]; X2:=DirtyLast[Y];
   TakeDirtyRow:=X1<=X2;
   DirtyFirst[Y]:=64; DirtyLast[Y]:=-1;
+end;
+
+function DocAllDirty:Boolean;
+var Y:Integer;
+begin
+  {Undo and cancellation restore the entire packed document. Let the UI
+   recognize that case before it consumes the per-row dirty ranges, so it can
+   use packed scanline renderers rather than 4,096 cell updates.}
+  DocAllDirty:=True;
+  for Y:=0 to DocHeight-1 do
+    if (DirtyFirst[Y]<>0) or (DirtyLast[Y]<>DocWidth-1) then
+    begin DocAllDirty:=False; Exit end;
 end;
 
 function DocPixel(X,Y:Integer):Byte;

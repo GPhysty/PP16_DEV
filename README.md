@@ -236,8 +236,6 @@ installers and the temporary extraction utility were removed after setup.
 version command. FPC Toolkit's installed documentation describes the `fpc` task
 type and `fpctoolkit.env.PP` setting used here.
 
-
-
 M3 layout and behavior are documented in [M3-INTERFACE.md](docs/M3-INTERFACE.md).
 `out/M2.EXE` preserves the accepted mouse checkpoint; `PP16 /M2` also runs it.
 
