@@ -313,8 +313,8 @@ headroom.
 M9 single-image panel cleanup: removed the static `NO - 1 +` strip and the
 `TOTAL/BYTES/ZOOM/CLEAN` information panel below the preview. PP16 has exactly
 one fixed-size image, no multi-image facility, and these controls had no input
-or document behavior behind them. The title's dirty `*`, working zoom buttons,
-pan controls and preview navigation remain. The full M1-M9 suite passed at
+or document behavior behind them. At that M9 checkpoint, the title's dirty `*`,
+working zoom buttons, pan controls and preview navigation remained. The full M1-M9 suite passed at
 3,000 cycles/ms in `obj/pp16-20260927-135901-938d35`. Production build:
 68,988 bytes (61,416 code bytes and 7,466 initialized-data bytes), leaving
 4,120 bytes of code headroom.

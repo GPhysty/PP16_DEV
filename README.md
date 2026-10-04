@@ -48,15 +48,17 @@ long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
   **Edit > Paste Behind** restricts a paste to destination pixels matching the currently selected background color; it is a persistent, checked toggle and applies when the floating clip is placed.
 - **Clipboard** (top row, second icon) or its right-hand panel: begin placement
   of the current clipboard image. The panel shows the clipboard at actual size
-  and its dimensions. Its upper-right red **×** clears the clipboard. Its
-  right-side mirror, rotate and scale buttons are always visible; Scale left-click adds one pixel to its width and height, while
+  and its dimensions. Its upper-right red **CLR** button clears the clipboard.
+  The four right-side buttons are evenly spaced; Scale left-click adds one
+  pixel to its width and height, while
   right-click subtracts one. They take effect once a clipboard image exists. The Select label
   shows the current selection dimensions.
 - **Right-click/drag on the canvas**: sample foreground color with any tool.
 - **Left/right palette click**: foreground/background color; **Tab** swaps them.
 - **2 / 4 / 8**: zoom; **arrows**: pan one pixel; **Shift+arrows**: pan
   half the visible view. **F4**: grid; **F1**: help.
-- **On-screen pan arrows**: left-click for half a view, right-click for one pixel.
+- **Help > About PP16**: program and platform details, plus the PIXELplus 256
+  workflow-reference credit.
 - **Click/drag in the image preview**: center the view there; dragging past its
   edges clamps to the image. Escape ends the drag at the current view without
   changing the image or its undo history.
@@ -124,6 +126,8 @@ overwrite an existing allocation. `out/M1.EXE` retains the keyboard-only demo.
 
 See [design/evidence](docs/M0-DESIGN.md), [milestone results](docs/MILESTONES.md),
 [credits](docs/CREDITS.md), and the [M4 drawing preview](docs/screenshots/M4-drawing.png).
+The release-style plain-text [PP16 user guide](PP16.DOC) is a standalone DOS
+manual modelled on the structure, not the text or licence, of PP256.DOC.
 Physical HX, actual DOS 3.3, and hands-on interface acceptance remain separate
 from automated emulator results.
 See [M5 behavior and checks](docs/M5-UNDO.md) for undo and discard semantics.

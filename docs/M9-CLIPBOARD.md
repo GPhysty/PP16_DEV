@@ -24,9 +24,10 @@ shape and opaque black pixels survive the file round trip. Empty clips cannot
 be saved. Both formats retain verified writes and recoverable overwritten files.
 
 Choosing any other drawing tool clears the active selection and restores its
-marquee cells from the document; it does not alter the clipboard. The small red
-**×** above the Clipboard panel's transform buttons clears the session clipboard
-without changing the document, undo history or selection state.
+marquee cells from the document; it does not alter the clipboard. The red
+**CLR** button, evenly spaced with the transform controls down the Clipboard
+panel's right side, clears the session clipboard without changing the document,
+undo history or selection state.
 
 - **Ctrl+C** or **Edit > Copy** copies the selection without changing the
   document or replacing its undo action.

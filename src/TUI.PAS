@@ -30,12 +30,11 @@ const ImagePreviewX=233; ImagePreviewY=29;
       EllipseSelectSprite=12;
       NavigationY=161;
       ZoomButtonX=84; ZoomButtonWidth=13; ZoomButtonHeight=11; ZoomButtonStep=21;
-      PanButtonX=156; PanButtonWidth=13; PanButtonHeight=11; PanButtonStep=14;
       ClipPreviewX=233; ClipPreviewY=113; ClipPreviewSize=64;
-      ClipClearButtonX=300; ClipClearButtonY=101;
+      ClipClearButtonX=300; ClipClearButtonY=112;
       ClipClearButtonWidth=18; ClipClearButtonHeight=10;
       ClipTransformButtonX=300; ClipTransformButtonSize=18;
-      ClipMirrorButtonY=115; ClipRotateButtonY=136; ClipScaleButtonY=157;
+      ClipMirrorButtonY=123; ClipRotateButtonY=142; ClipScaleButtonY=161;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
     Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
@@ -306,18 +305,6 @@ begin
   DrawBorder(ImagePreviewX-1,28,ImagePreviewX+64,94,7);
 end;
 
-procedure ClipboardClearIcon(X,Y:Integer);
-var I:Integer;
-begin
-  {A compact red X makes the destructive clipboard-only action distinct from
-   the three non-destructive transform controls below it.}
-  for I:=0 to 6 do
-  begin
-    PutPixel(X+I,Y+I,4);
-    PutPixel(X+6-I,Y+I,4);
-  end;
-end;
-
 procedure ClipboardPanel;
 {$ifdef PP16_CLIP_ENABLED}
 var X,Y,OffsetX,OffsetY:Integer; S:String[12];
@@ -328,7 +315,7 @@ begin
   {$ifdef PP16_CLIP_ENABLED}
   Button(ClipClearButtonX,ClipClearButtonY,ClipClearButtonWidth,
     ClipClearButtonHeight,False);
-  ClipboardClearIcon(ClipClearButtonX+5,ClipClearButtonY+2);
+  SmallText(ClipClearButtonX+3,ClipClearButtonY+2,'CLR',4);
   Button(ClipTransformButtonX,ClipMirrorButtonY,ClipTransformButtonSize,
     ClipTransformButtonSize,False);
   Button(ClipTransformButtonX,ClipRotateButtonY,ClipTransformButtonSize,
@@ -362,47 +349,21 @@ begin
   ControlHit:=True;
 end;
 
-function InNavigationControl(X,Y:Integer):Boolean;
+function InZoomControl(X,Y:Integer):Boolean;
 var I:Integer;
 begin
-  InNavigationControl:=ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,
-    ZoomButtonHeight,ZoomButtonStep,3,I) or
-    ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,4,I);
+  InZoomControl:=ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,
+    ZoomButtonHeight,ZoomButtonStep,3,I);
 end;
 
 procedure Navigation;
 var I,Z:Integer;
-
-  procedure Triangle(X,Y,Direction:Integer);
-  var PX,PY,Half:Integer;
-  begin
-    for PY:=0 to 4 do for PX:=0 to 4 do
-    begin
-      case Direction of
-        0:Half:=(PX+1) div 2;
-        1:Half:=(5-PX) div 2;
-        2:Half:=(PY+1) div 2;
-        3:Half:=(5-PY) div 2;
-      end;
-      if Direction<2 then
-      begin
-        if (PY>=2-Half) and (PY<=2+Half) then PutPixel(X+PX,Y+PY,4);
-      end else
-        if (PX>=2-Half) and (PX<=2+Half) then PutPixel(X+PX,Y+PY,4);
-    end;
-  end;
-
 begin
   Z:=2;
   for I:=0 to 2 do begin Button(ZoomButtonX+I*ZoomButtonStep,NavigationY,
     ZoomButtonWidth,ZoomButtonHeight,Zoom=Z);
     SmallText(ZoomButtonX+(ZoomButtonWidth-7) div 2+I*ZoomButtonStep,
       NavigationY+(ZoomButtonHeight-5) div 2,Num(Z)+'X',4); Z:=Z*2 end;
-  for I:=0 to 3 do begin
-    Button(PanButtonX+I*PanButtonStep,NavigationY,PanButtonWidth,PanButtonHeight,False);
-    Triangle(PanButtonX+(PanButtonWidth-5) div 2+I*PanButtonStep,
-      NavigationY+(PanButtonHeight-5) div 2,I);
-  end;
 end;
 
 procedure Status(X,Y:Integer);
@@ -441,15 +402,15 @@ begin
 end;
 
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
-      PopupW:array[0..5] of Integer=(168,152,104,200,176,96);
-      MenuRows:array[0..5] of Integer=(5,7,1,2,0,1);
+      PopupW:array[0..5] of Integer=(168,152,104,200,176,112);
+      MenuRows:array[0..5] of Integer=(5,7,1,2,0,2);
       Labels:array[0..5,0..7] of String[20]=(
        ('New','Open...','Save','Save As...','Exit','','',''),
        ('Undo','','Cut','Copy','Paste','','Paste Behind',''),
        ('Grid On','','','','','','',''),
        ('Clear','Clear to Colour','','','','','',''),
        ('','','','','','','',''),
-       ('Help','','','','','','',''));
+       ('Quick Help','About PP16','','','','','',''));
 
 function MenuRowY(M,I:Integer):Integer;
 var J,Y:Integer;
@@ -470,7 +431,7 @@ begin
            ((M=1) and (I=0) and DocCanUndo) or
 {$endif}
            ((M=3) and (I in [0,1])) or ((M=2) and (I=0)) or
-           ((M=5) and (I=0));
+           ((M=5) and (I in [0,1]));
 end;
 
 function Shortcut(M,I:Integer):String;
@@ -507,13 +468,47 @@ begin
   end;
   if OpenMenu=6 then
   begin
-    FillBox(52,44,268,133,1); DrawBorder(52,44,268,133,9); DrawBorder(55,47,265,130,7);
-    Text8(88,52,'PP16 - Help',15);
-    SmallText(64,70,'2/4/8: ZOOM  SHIFT+ARROWS: FAST PAN',15);
-    SmallText(64,80,'BRUSH, LINE, SQUARE, CIRCLE: DRAG',15);
-    SmallText(64,90,'RIGHT CANVAS DRAG: PICK COLOR',15);
-    SmallText(64,100,'ESC IN STROKE: CANCEL',14);
-    SmallText(64,116,'ESC OR CLICK: CLOSE',15); Exit;
+    {217 screen pixels wide means 109 packed bytes per row. At 112 rows this
+     stays inside the 12,288-byte popup save area while leaving room for a
+     readable two-column quick reference.}
+    FillBox(52,44,268,155,1); DrawBorder(52,44,268,155,9); DrawBorder(55,47,265,152,7);
+    Text8(100,52,'PP16 QUICK HELP',15);
+    HSpan(62,258,65,8);
+    SmallText(64,70,'CANVAS',14); SmallText(164,70,'EDIT',14);
+    SmallText(64,79,'DRAG: DRAW',15);
+    SmallText(64,87,'RIGHT DRAG: PICK',15);
+    SmallText(64,95,'2/4/8: ZOOM',15);
+    SmallText(64,103,'ARROWS: PAN',15);
+    SmallText(64,111,'SHIFT+ARROWS: FAST',15);
+    SmallText(164,79,'CTRL+Z: UNDO',15);
+    SmallText(164,87,'ESC: CANCEL STROKE',15);
+    SmallText(164,95,'CTRL+C/X/V: CLIP',15);
+    SmallText(164,103,'TAB: SWAP COLORS',15);
+    SmallText(164,111,'ALT+C: CLEAR',15);
+    HSpan(62,258,121,8);
+    SmallText(64,129,'SELECT: DRAG   CLR: EMPTY CLIP',15);
+    SmallText(64,141,'F4: GRID   ESC/CLICK: CLOSE',15); Exit;
+  end;
+  if OpenMenu=7 then
+  begin
+    {244 screen pixels means 122 saved bytes per row; the 100-row dialog
+     fits inside the 12,288-byte popup area while keeping the full credit
+     block readable in the native 3x5 UI font.}
+    FillBox(38,42,281,141,1); DrawBorder(38,42,281,141,9); DrawBorder(41,45,278,138,7);
+    Text8(118,48,'ABOUT PP16',15);
+    SmallText(100,60,'64X64 16-COLOR SPRITE EDITOR',15);
+    SmallText(90,66,'TARGET SYSTEM: TANDY 1000HX / DOS',15);
+    HSpan(52,267,73,8);
+    SmallText(88,78,'PP16 (C) 2026 BARTHOLOMEW HARNER',15);
+    SmallText(72,84,'DESIGNED AND DEVELOPED BY BARTHOLOMEW HARNER',15);
+    HSpan(52,267,91,8);
+    SmallText(88,96,'WORKFLOW INSPIRATION AND REFERENCE:',14);
+    SmallText(76,102,'PIXELPLUS 256 (C) 1995 CHRIS CHADWICK',15);
+    SmallText(88,108,'SOMERSET, ENGLAND',15);
+    HSpan(52,267,115,8);
+    SmallText(76,120,'IMPLEMENTATION ASSISTANCE: OPENAI CODEX',14);
+    SmallText(88,126,'AI ASSISTANT (C) 2026 OPENAI',15);
+    SmallText(88,132,'INDEPENDENT; PP256 NOT PP16 SOURCE.',15); Exit;
   end;
   X:=PopupX[OpenMenu]; W:=PopupW[OpenMenu]; H:=MenuRowY(OpenMenu,MenuRows[OpenMenu])+4;
   FillBox(X,9,X+W-1,H,1); DrawBorder(X,9,X+W-1,H,9); DrawBorder(X+3,12,X+W-4,H-3,7);
@@ -540,7 +535,8 @@ begin
     SavedX1:=PopupX[OpenMenu]; SavedX2:=SavedX1+PopupW[OpenMenu]-1;
     SavedY1:=9; SavedY2:=MenuRowY(OpenMenu,MenuRows[OpenMenu])+4;
   end else case OpenMenu of
-    6:begin SavedX1:=52; SavedY1:=44; SavedX2:=268; SavedY2:=133 end;
+    6:begin SavedX1:=52; SavedY1:=44; SavedX2:=268; SavedY2:=155 end;
+    7:begin SavedX1:=38; SavedY1:=42; SavedX2:=281; SavedY2:=141 end;
     8:begin SavedX1:=36; SavedY1:=49; SavedX2:=283; SavedY2:=143 end;
     9:begin SavedX1:=50; SavedY1:=36; SavedX2:=269; SavedY2:=145 end;
   end;
@@ -943,7 +939,7 @@ begin
             else if M=3 then
             begin if I=0 then DocClear(0) else DocClear(ForeColor) end
             else if M=2 then begin GridVisible:=not GridVisible; RedrawView end
-            else if M=5 then begin SetPopup(6); Exit end;
+            else if M=5 then begin if I=0 then SetPopup(6) else SetPopup(7); Exit end;
             PaintChanges; Exit;
           end;
         Exit; {Disabled items do not masquerade as working commands.}
@@ -974,9 +970,6 @@ begin
     if Button=1 then ForeColor:=I else if Button=2 then BackColor:=I;
     Colors; Exit;
   end;
-  if (Button in [1,2]) and
-     ControlHit(X,Y,PanButtonX,PanButtonWidth,PanButtonHeight,PanButtonStep,4,I) then
-  begin PanCommand(I,Button=1); Exit end;
   {$ifdef PP16_CLIP_ENABLED}
   if (Button=2) and (X>=2) and (X<20) and (Y>=18) and (Y<36) then
   begin
@@ -1387,7 +1380,7 @@ begin
           (((Gesture=0) and (S.Buttons=0) and
             ((Key in [50,52,56]) or (Scan in [62,72,75,77,80]))) or
            (Gesture=3) or ((Scan=0) and (Gesture=0) and
-            (InNavigationControl(S.X,S.Y) or
+            (InZoomControl(S.X,S.Y) or
              ((S.X>=ImagePreviewX) and (S.X<ImagePreviewX+64) and
               (S.Y>=ImagePreviewY) and (S.Y<ImagePreviewY+64)))));
         if not DeferHide then HideCursor;
@@ -1456,7 +1449,6 @@ begin
   HandleClick(62,174,2); if BackColor<>15 then Inc(F);
   HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>2 then Inc(F);
   HandleClick(ZoomButtonX+2*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
-  HandleClick(PanButtonX+PanButtonStep+2,NavigationY+2,1); if PanX<0 then Inc(F);
   HandleClick(5,3,1); HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(5,21,1); if SelectedTool<>0 then Inc(F);
   if (Shortcut(1,2)<>'Ctrl+X') or (Shortcut(1,3)<>'Ctrl+C') or
@@ -1800,14 +1792,21 @@ var F:Word; S:TMouseState; Before:DWord; I,Y:Integer;
 
 begin
   F:=0; HideCursor; InitUI; DrawUI; Before:=DocChecksum;
+  KeyInput(0,59,0); Check((OpenMenu=6) and PopupSaved,'F1 opens Quick Help');
+  KeyInput(27,1,0);
+  HandleClick(MenuX[5],3,1);
+  HandleClick(PopupX[5]+14,MenuRowY(5,1)+1,1);
+  Check((OpenMenu=7) and PopupSaved and (SavedX1=38) and (SavedY1=42) and
+        (SavedX2=281) and (SavedY2=141),'Help About opens full credit window');
+  HandleClick(0,190,1); Check(OpenMenu=-1,'About closes on click');
+  HandleClick(MenuX[5],3,1);
+  HandleClick(PopupX[5]+14,MenuRowY(5,1)+1,1);
+  KeyInput(27,1,0); Check(OpenMenu=-1,'About closes');
   ShiftHeld:=True; KeyInput(0,77,0);
   Check(PanX=32,'Shift right moves half view');
   ShiftHeld:=False; KeyInput(0,75,0);
   Check(PanX=31,'plain arrow moves one pixel');
-  HandleClick(160,164,1); Check(PanX=15,'left click arrow moves half view');
-  HandleClick(160,164,2); Check(PanX=14,'right click arrow moves one pixel');
   SetZoom(8); PanView(-64,-64); RedrawView;
-  HandleClick(175,164,1); Check(PanX=8,'coarse step follows zoom');
   FillChar(S,SizeOf(S),0);
   Feed(ImagePreviewX+32,ImagePreviewY+32,1);
   Check((PanX=24) and (PanY=24),'preview centers viewport');
@@ -1826,7 +1825,7 @@ begin
   CheckStatus(9,'9 '); CheckStatus(10,'10'); CheckStatus(9,'9 '); CheckStatus(-1,'--');
   {Keep a final coordinate/cursor fixture for host inspection.}
   PointerFeedback(CanvasX+40,CanvasY+40);
-  WriteLn('Response: pan controls, preview drag, coordinate transitions checked');
+  WriteLn('Response: keyboard pan, preview drag, coordinate transitions checked');
   ResponseChecks:=F;
 end;
 

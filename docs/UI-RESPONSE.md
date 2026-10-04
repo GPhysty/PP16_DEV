@@ -37,7 +37,6 @@ review remains pending; their screenshot uses a customized CRT shader/profile.
 ## Navigation
 
 - Arrow keys move one document pixel; Shift+arrows move half a visible view.
-- On-screen pan arrows move half a view on left-click, one pixel on right-click.
 - Click/drag in the actual-size preview to center the view at that point.
   Dragging beyond it clamps to the document edges. Release includes the final
   pointer position. Escape ends the gesture and consumes the held button until
