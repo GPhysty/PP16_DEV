@@ -2,7 +2,7 @@ PP16 is a compact sprite-frame editor written for 16-colour Tandy graphics.
 It is intended for work on one 64 by 64 pixel image at a time, with the
 tools needed to draw, select, move, save and reopen that image reliably.
 
-The Tandy 1000HX is PP16's target system.  The editor is a new 2026
+The Tandy 1000HX is PP16's targeted system to develop graphics for.  The editor is a new 2026
 implementation: it is not a port of PIXELplus 256, and it does not contain
 PIXELplus 256 editor source or supplied graphics.
 
