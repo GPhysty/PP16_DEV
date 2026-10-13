@@ -1,25 +1,27 @@
-# PP16 â€” Tandy 1000 HX editor project
+# PP16 - a 16-colour sprite-frame editor for the Tandy 1000HX
 
-Current working build: **M9 with native Save/Open, basic shape tools, bucket
-fill and selection/clipboard editing**, with the M10 sprite-focused interface
-cleanup underway,
-retaining the PIXELplus-style layout and the accepted faster canvas/pointer
-baseline. The 64x64 packed image is editable with one-level undo and can be
-saved as a native `.P16` file.
+PP16 is a compact 16-bit real-mode DOS editor for hand-drawn 64 by 64 pixel
+sprite frames.  It targets the Tandy 1000HX and its 320 by 200, 16-colour
+graphics mode, while remaining practical to build and test in DOSBox-X.
 
-Current M10-start build: **68,432-byte EXE**, with **64,397 code bytes** and
-3,934 initialized-data bytes. It remains within the 64 KB small-model code
-segment (1,139 bytes of production code headroom). Shared file-read and byte-comparison
-code recovered 291 bytes before adding native `.CLP` save/load, for 361 bytes
-of net code growth. Range/overflow checks and verified saves remain enabled.
-The current checkpoint uses
-FPC `-O1 -Os`, a packed 3x5 font table, shared line/border/clipboard-transform
-routines, shared shape rasterizers, incremental shape previews, packed-row
-image-preview drawing, and packed-row clipboard copy for aligned selections. the nonfunctional single-image number and
-information panels. See the optimization checkpoint in
-[MILESTONES.md](docs/MILESTONES.md).
-The current M6 build includes the save/restart fix for DOSBox profiles with
-long filenames enabled; PP16 consistently uses DOS 8.3 file operations.
+The editor is deliberately focused: it works on one fixed-size image at a
+time, provides direct pixel and shape drawing, and uses selection and clipboard
+tools to carry detail between frames.  Its native `.P16` image format and
+`.CLP` clipboard format are fully checked before loading; verified saves retain
+replaced files and failed temporary writes in `TRASH` for recovery.
+
+PP16 is a new implementation, not a port of PIXELplus 256.  PIXELplus 256 by
+Chris Chadwick is credited as a workflow and behaviour reference; PP16 does
+not contain its unavailable editor source or supplied artwork.  See the
+[plain-text PP16 user guide](PP16.DOC) for the release-style manual and
+[credits](docs/CREDITS.md) for the full reference notices.
+
+The project stays within 8086 small-model limits and uses only conventional
+memory at runtime.  It needs no GRAFIX TSR, ADJMEM, EMS or XMS.  PP16 is built
+with Free Pascal and its UI is designed for mouse-driven pixel work on original
+hardware as well as the included DOSBox-X workflow.
+
+## Current editor capabilities
 
 - **Brush** (top row, fourth icon): left-click or drag to paint square strokes.
 - **Cut** (bottom row, first icon): copies the current rectangular or ellipse
