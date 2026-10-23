@@ -39,6 +39,10 @@ See the [distribution record](dist/README.md) for contents, checksums and
 validation. Version 1.0 includes the packed-buffer Clear improvements.
 Gradient/dither painting belongs to the upcoming version 1.1 work.
 
+The `v1.1` development branch records the agreed gradient-selector design and
+the medium-model option in [docs/V1.1-PLAN.md](docs/V1.1-PLAN.md). Those are
+development plans; the packaged 1.0 editor remains the stable distribution.
+
 ## Current editor capabilities
 
 - **Brush** (top row, fourth icon): left-click or drag to paint square strokes.
