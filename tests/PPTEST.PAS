@@ -5,7 +5,7 @@ program PP16;
 uses Dos, VMem, TVideo, TMouse, TCursor
 {$ifndef PP16_VIDEO_TEST},TUI{$endif};
 var Failures:Word; AutoTest, Dump, Probe:Boolean; Pass:Integer;
-    PreviousExit:NearCsPointer; InitialHeap:LongInt;
+    PreviousExit:CodePointer; InitialHeap:LongInt;
     MouseTest,NoMouseTest,LegacyDemo:Boolean;
     UITest,UIDump,ShellMode,MouseDemo,DrawingTest,UndoTest,PerfTest,ResponseTest,ClipTest:Boolean;
 
@@ -227,7 +227,11 @@ begin
   ShellMode:=not (AutoTest or Dump or MouseTest or NoMouseTest or LegacyDemo or MouseDemo);
   Probe:=ParamStr(1)='/PROBE'; InitialHeap:=MemAvail;
   PreviousExit:=ExitProc; ExitProc:=@CleanExit;
+  {$ifdef FPC_MM_MEDIUM}
+  WriteLn('PP16 M9 - real-mode 8086 / medium model');
+  {$else}
   WriteLn('PP16 M9 - real-mode 8086 / small model');
+  {$endif}
   if not ReserveVideoMemory then begin WriteLn('REFUSED: ',VideoMemoryError); Halt(2) end;
   WriteLn('Video page physical 98000..9FFFF; DOS arena end paragraph=',ArenaEnd);
   WriteLn('Owned DOS block segment=',ReservedSegment,' (0=pre-reserved)');

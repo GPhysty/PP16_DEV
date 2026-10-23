@@ -1,16 +1,20 @@
-param([ValidateRange(300,10000)][int]$Cycles = 3000, [switch]$UndoOnly, [switch]$PerfOnly, [switch]$ResponseOnly, [switch]$FileOnly, [switch]$ClipOnly)
+param([ValidateRange(300,10000)][int]$Cycles = 3000, [switch]$UndoOnly, [switch]$PerfOnly, [switch]$ResponseOnly, [switch]$FileOnly, [switch]$ClipOnly, [ValidateSet('Small','Medium')][string]$MemoryModel = 'Small')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
     # Each run has an isolated drive: keep past reports and avoid root/out clutter.
-    $runName = 'pp16-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,6)
+    $prefix = if ($MemoryModel -eq 'Medium') { 'pp16-medium-' } else { 'pp16-' }
+    $output = if ($MemoryModel -eq 'Medium') { 'out/medium' } else { 'out' }
+    $checksDir = if ($MemoryModel -eq 'Medium') { 'obj/medium-checks' } else { 'obj/checks' }
+    $runName = $prefix + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,6)
     $runRel = 'obj/' + $runName
     $runDir = Join-Path $PSScriptRoot $runRel
     New-Item -ItemType Directory -Path $runDir | Out-Null
-    Copy-Item -LiteralPath out/PP16.EXE,out/PP16UI.P16 -Destination $runDir
-    & ./build-checks.ps1
-    Copy-Item -LiteralPath obj/checks/PPTVIDEO.EXE,obj/checks/PPTVIEW.EXE,obj/checks/PPTDRAW.EXE,obj/checks/PPTUNDO.EXE,obj/checks/PPTRESP.EXE,obj/checks/PPTFUI.EXE,obj/checks/PPTCLIP.EXE,obj/checks/PPTFILE.EXE,obj/checks/PPELLIP.EXE,obj/checks/PPSTART.EXE -Destination $runDir
-    Copy-Item -LiteralPath obj/checks/PPTCLPF.EXE -Destination $runDir
+    Copy-Item -LiteralPath "$output/PP16.EXE","$output/PP16UI.P16" -Destination $runDir
+    & ./build-checks.ps1 -MemoryModel $MemoryModel
+    foreach ($name in @('PPTVIDEO','PPTVIEW','PPTDRAW','PPTUNDO','PPTRESP','PPTFUI','PPTCLIP','PPTFILE','PPELLIP','PPSTART','PPTCLPF')) {
+        Copy-Item -LiteralPath "$checksDir/$name.EXE" -Destination $runDir
+    }
     & './tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe' '-n' '@hx8086.cfg' '-oMEMINFO.EXE' 'src/MEMINFO.PAS' 2>&1 |
         Tee-Object -FilePath obj/monitor.log -Append
     if ($LASTEXITCODE -ne 0) { throw 'Memory diagnostic build failed.' }

@@ -360,3 +360,22 @@ editor Save/Open passed in `obj/dist-1.0-20261023-5aa6eba2`.
 
 Version 1.1 is the next development line for gradient/dither paint. Neither
 that feature nor a memory-model migration is part of the 1.0 distribution.
+
+## PP16 1.1 Medium compatibility checkpoint - 2026-10-23
+
+Before adding gradient/dither paint, an isolated `-WmMedium` build of the
+existing editor was added. FPC 3.2.2 Medium runtime units were built from the
+matching release sources; exit hooks use model-dependent `CodePointer`.
+Build/check/run scripts accept `-MemoryModel Medium`; Small remains the
+default and the frozen 1.0 distribution is unchanged.
+
+The Medium production build contains 67,804 linked code bytes in multiple
+segments, 4,456 initialized-data bytes and a 7,662-byte initial near heap.
+Focused clipboard/ellipse/file checks passed in
+`obj/pp16-medium-20261023-023323-85e779`; the full regression, production
+Save/Open and exact DOS memory restoration passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-023447-68d547`. All nine full-regression framebuffer
+dumps match the Small baseline. Rebuilding Small produces the exact 1.0
+executable bytes. See [the trial record](MEDIUM-MODEL.md) for setup and results.
+Physical HX and interactive acceptance remain outstanding. Gradient painting
+is not implemented by this checkpoint.

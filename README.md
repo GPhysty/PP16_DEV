@@ -16,8 +16,9 @@ not contain its unavailable editor source or supplied artwork.  See the
 [plain-text PP16 user guide](PP16.DOC) for the release-style manual and
 [credits](docs/CREDITS.md) for the full reference notices.
 
-The project stays within 8086 small-model limits and uses only conventional
-memory at runtime.  It needs no GRAFIX TSR, ADJMEM, EMS or XMS.  PP16 is built
+The 1.0 release uses the 8086 small memory model; an optional medium-model
+compatibility target is available on `v1.1`. Both use only conventional
+memory at runtime.  PP16 needs no GRAFIX TSR, ADJMEM, EMS or XMS.  It is built
 with Free Pascal and its UI is designed for mouse-driven pixel work on original
 hardware as well as the included DOSBox-X workflow.
 
@@ -39,9 +40,11 @@ See the [distribution record](dist/README.md) for contents, checksums and
 validation. Version 1.0 includes the packed-buffer Clear improvements.
 Gradient/dither painting belongs to the upcoming version 1.1 work.
 
-The `v1.1` development branch records the agreed gradient-selector design and
-the medium-model option in [docs/V1.1-PLAN.md](docs/V1.1-PLAN.md). Those are
-development plans; the packaged 1.0 editor remains the stable distribution.
+The `v1.1` development branch records the agreed gradient-selector design in
+[docs/V1.1-PLAN.md](docs/V1.1-PLAN.md). A separate Medium build of the existing
+editor passes regression; see [setup and results](docs/MEDIUM-MODEL.md).
+Gradient painting is still planned; the packaged 1.0 editor remains the
+stable distribution.
 
 ## Current editor capabilities
 
@@ -127,6 +130,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-pp16.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\check-pp16.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-pp16.ps1
 ```
+
+These commands default to Small. For the Medium trial, first prepare its
+matching FPC 3.2.2 runtime using [these instructions](docs/MEDIUM-MODEL.md),
+then pass `-MemoryModel Medium` to the build, check and run scripts. Its
+executable and atlas are isolated in `out/medium/`.
 
 With **PP16_DEV opened as the VS Code workspace**, Ctrl+Shift+B builds PP16.
 The `PP16: Build and run editor` task opens a visible emulator.
