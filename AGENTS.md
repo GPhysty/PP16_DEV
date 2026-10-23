@@ -7,3 +7,4 @@
   explicitly requests permanent deletion.
 - Keep working source, references, compiler tools, and configuration unless the
   user includes them in the cleanup request.
+- pause after all model recommendations and inquiry me for authorization to proceed.
