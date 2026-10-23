@@ -109,12 +109,18 @@ begin
 end;
 
 procedure DocClear(C:Byte);
-var X,Y:Integer;
+var I:Word; B:Byte;
 begin
   if ActionActive then Exit;
-  DocBeginAction;
-  for Y:=0 to 63 do for X:=0 to 63 do DocSetPixel(X,Y,C);
-  DocCommitAction;
+  C:=C and 15; B:=C or (C shl 4);
+  {A uniform document is a no-op: preserve its dirty flag and prior undo.}
+  for I:=0 to DocBytes-1 do if Pixels[I]<>B then
+  begin
+    Move(Pixels,UndoPixels,DocBytes);
+    UndoDirty:=DocDirty; UndoValid:=True;
+    FillChar(Pixels,DocBytes,B); DocDirty:=True;
+    MarkAll; Exit;
+  end;
 end;
 
 procedure InitBlankDoc(C:Byte);

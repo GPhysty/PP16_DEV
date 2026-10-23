@@ -1895,7 +1895,7 @@ end;
 
 {$ifdef PP16_UNDO_TEST}
 function UndoChecks:Word;
-var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
+var F:Word; S:TMouseState; X,Y:Integer; Before:DWord; C:Byte;
 
   procedure Check(OK:Boolean; const Name:String);
   begin if not OK then begin Inc(F); WriteLn('FAIL: ',Name) end end;
@@ -1916,6 +1916,19 @@ var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
   begin
     HandleClick(MenuX[M],3,1);
     HandleClick(PopupX[M]+14,MenuRowY(M,I)+1,1);
+  end;
+
+  procedure CheckCleared(Color:Byte);
+  var X,Y:Integer;
+  begin
+    for Y:=0 to 63 do for X:=0 to 63 do
+    begin
+      Check(DocPixel(X,Y)=Color,'clear fills every document pixel');
+      Check(GetPixel(CanvasX+X*2,CanvasY+Y*2)=Color,'clear redraws every canvas cell');
+      Check(GetPixel(ImagePreviewX+X,ImagePreviewY+Y)=Color,'clear redraws every preview pixel');
+      Check((GetPixel(CanvasX+X*2+1,CanvasY+Y*2)=8) and
+            (GetPixel(CanvasX+X*2,CanvasY+Y*2+1)=8),'clear preserves the canvas grid');
+    end;
   end;
 
 begin
@@ -1970,16 +1983,33 @@ begin
   Check((DocChecksum=0) and not DocDirty and not DocCanUndo,
         'cancel first stroke including release restores clean state');
 
-  InitUI; Before:=DocChecksum; Choose(3,0);
+  InitUI; SetZoom(2); PanView(-64,-64); DrawUI; Before:=DocChecksum; Choose(3,0);
   Check((DocChecksum=0) and DocDirty and DocCanUndo,'menu clear is undoable');
+  CheckCleared(0);
   DocUndo; Check((DocChecksum=Before) and not DocDirty,'clear undo restores demo');
   ForeColor:=6; Choose(3,1);
-  for Y:=0 to 63 do for X:=0 to 63 do
-    Check(DocPixel(X,Y)=6,'clear to foreground covers all pixels');
+  CheckCleared(6);
   Choose(3,1); DocUndo;
   Check(DocChecksum=Before,'same-color clear preserves preceding undo');
-  KeyInput(0,46,0); Check(DocChecksum=0,'Alt+C clears');
+  KeyInput(0,46,0); PaintChanges; Check(DocChecksum=0,'Alt+C clears');
+  CheckCleared(0);
   DocUndo; Check(DocChecksum=Before,'Alt+C undo');
+
+  {Sparse changes must still use the complete-image redraw for either nibble.}
+  for C:=0 to 15 do
+  begin
+    ResetTest; InitBlankDoc(C); DrawUI; DocClear(C);
+    Check(not DocDirty and not DocCanUndo and not DocAllDirty,
+          'unchanged clear stays clean without undo or repaint');
+    DocBeginAction; DocSetPixel(10,10,C xor 1); DocCommitAction; Before:=DocChecksum;
+    DocClear(C);
+    Check(DocAllDirty and DocDirty and DocCanUndo,'sparse clear requests complete-image redraw');
+    PaintChanges; CheckCleared(C);
+    DocClear(C);
+    Check(not DocAllDirty and DocDirty and DocCanUndo,'unchanged clear keeps dirty state and undo');
+    DocUndo;
+    Check((DocChecksum=Before) and DocDirty and not DocCanUndo,'clear undo restores dirty image');
+  end;
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Before:=DocChecksum;
   Choose(0,0);
