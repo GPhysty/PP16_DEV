@@ -17,9 +17,10 @@ procedure PerfCase(N:Integer);
 {$endif}
 {$ifdef PP16_FILEUI_TEST}function FileUIChecks:Word;{$endif}
 {$ifdef PP16_CLIP_TEST}function ClipChecks:Word;{$endif}
+{$ifdef PP16_GRADIENT_TEST}function GradientChecks:Word;{$endif}
 procedure PointerFeedback(X,Y:Integer);
 implementation
-uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
+uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster,TPaint
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
       ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','CUT','CIRCLE','SQUARE','LINE');
@@ -35,6 +36,9 @@ const ImagePreviewX=233; ImagePreviewY=29;
       ClipClearButtonWidth=18; ClipClearButtonHeight=10;
       ClipTransformButtonX=300; ClipTransformButtonSize=18;
       ClipMirrorButtonY=123; ClipRotateButtonY=142; ClipScaleButtonY=161;
+      PaletteY=126; PaletteStep=11; PaletteHeight=10;
+      GradientY=177; GradientHeight=13; GradientBoxWidth=12;
+      GradientAX=2; GradientBX=66; GradientRampX=16; GradientRampWidth=48;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
     Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
@@ -45,6 +49,7 @@ var OpenMenu:Integer;
     PendingCommand:Byte; ConfirmDiscard:Boolean;
     ToolAtlas:TDocPixels; ToolAtlasLoaded:Boolean;
     CachedTool,CachedFore,CachedBack:Integer;
+    GradientArm:Byte;
     PreviewValid:Boolean; PreviewX1,PreviewY1,PreviewX2,PreviewY2:Integer;
     ViewedZoom,ViewedPanX,ViewedPanY:Integer; ViewedGrid:Boolean;
     SavedPopup:TSavedArea; PopupSaved:Boolean;
@@ -180,37 +185,83 @@ begin
   BrushSize:=NewSize; Tools;
 end;
 
+function RampStep(X:Integer):Byte;
+begin RampStep:=((X-GradientRampX)*11) div GradientRampWidth end;
+
+procedure GradientPanel;
+var X,Y,M:Integer; A,B:Byte; S:String[16];
+begin
+  FillBox(1,170,78,190,0);
+  S:='DITHER '+Num(GradientStep*10)+'%';
+  if GradientArm=1 then S:='PICK A: PALETTE'
+  else if GradientArm=2 then S:='PICK B: PALETTE';
+  SmallText(4,170,S,7);
+  A:=7; B:=7;
+  if GradientArm=1 then A:=14 else if GradientArm=2 then B:=14;
+  DrawBorder(GradientAX,GradientY,GradientAX+GradientBoxWidth-1,
+    GradientY+GradientHeight-1,A);
+  DrawBorder(GradientBX,GradientY,GradientBX+GradientBoxWidth-1,
+    GradientY+GradientHeight-1,B);
+  FillBox(GradientAX+1,GradientY+1,GradientAX+GradientBoxWidth-2,
+    GradientY+GradientHeight-2,GradientFirst);
+  FillBox(GradientBX+1,GradientY+1,GradientBX+GradientBoxWidth-2,
+    GradientY+GradientHeight-2,GradientLast);
+  for Y:=GradientY+1 to GradientY+GradientHeight-2 do
+    for X:=GradientRampX+1 to GradientRampX+GradientRampWidth-2 do
+      PutPixel(X,Y,MixColor(X-GradientRampX,Y-GradientY,RampStep(X)));
+  DrawBorder(GradientRampX,GradientY,GradientRampX+GradientRampWidth-1,
+    GradientY+GradientHeight-1,8);
+  M:=GradientRampX+((Integer(GradientStep)*2+1)*GradientRampWidth) div 22;
+  if ForeColor=GradientPaint then A:=15 else A:=8;
+  HSpan(M-1,M+1,190,A);
+end;
+
 procedure Colors;
-var I,X,Y:Integer;
+var I,X,Y:Integer; S:String[6];
 begin
   if (CachedFore=ForeColor) and (CachedBack=BackColor) then Exit;
   if CachedFore<0 then begin
   FillBox(1,80,78,115,0);
-  SmallText(2,86,'>',15); DrawBorder(12,80,48,94,15); FillBox(14,82,46,92,ForeColor);
-  SmallText(52,85,':'+Num(ForeColor),15);
-  DrawBorder(12,99,48,113,15); FillBox(14,101,46,111,BackColor);
-  SmallText(52,104,':'+Num(BackColor),15);
+  SmallText(2,86,'>',15); DrawBorder(12,80,48,94,15);
+  DrawBorder(12,99,48,113,15);
   SmallText(7,118,'PALETTE',7);
-  end else begin
-    if CachedFore<>ForeColor then begin
-      FillBox(14,82,46,92,ForeColor); FillBox(52,85,77,89,0);
-      SmallText(52,85,':'+Num(ForeColor),15);
-    end;
-    if CachedBack<>BackColor then begin
-      FillBox(14,101,46,111,BackColor); FillBox(52,104,77,108,0);
-      SmallText(52,104,':'+Num(BackColor),15);
-    end;
+  end;
+  if (CachedFore<0) or (CachedFore<>ForeColor) then begin
+    if ForeColor=GradientPaint then
+      for Y:=82 to 92 do for X:=14 to 46 do
+        PutPixel(X,Y,PaintColor(X-14,Y-82,GradientPaint))
+    else FillBox(14,82,46,92,ForeColor);
+    FillBox(52,85,77,89,0);
+    if ForeColor=GradientPaint then S:=Num(GradientStep*10)+'%'
+    else S:=Num(ForeColor);
+    SmallText(52,85,':'+S,15);
+  end;
+  if (CachedFore<0) or (CachedBack<>BackColor) then begin
+    FillBox(14,101,46,111,BackColor); FillBox(52,104,77,108,0);
+    SmallText(52,104,':'+Num(BackColor),15);
   end;
   for I:=0 to 15 do
   if (CachedFore<0) or (I=CachedFore) or (I=CachedBack) or
      (I=ForeColor) or (I=BackColor) then
   begin
-    X:=2+(I mod 4)*19; Y:=126+(I div 4)*15;
-    FillBox(X,Y,X+17,Y+13,I); DrawBorder(X,Y,X+17,Y+13,8);
-    if I=ForeColor then DrawBorder(X+1,Y+1,X+16,Y+12,15);
-    if I=BackColor then PutPixel(X+3,Y+10,15);
+    X:=2+(I mod 4)*19; Y:=PaletteY+(I div 4)*PaletteStep;
+    FillBox(X,Y,X+17,Y+PaletteHeight-1,I);
+    DrawBorder(X,Y,X+17,Y+PaletteHeight-1,8);
+    if I=ForeColor then DrawBorder(X+1,Y+1,X+16,Y+PaletteHeight-2,15);
+    if I=BackColor then PutPixel(X+3,Y+PaletteHeight-4,15);
   end;
+  if (CachedFore<0) or ((ForeColor=GradientPaint)<>(CachedFore=GradientPaint)) then
+    GradientPanel;
   CachedFore:=ForeColor; CachedBack:=BackColor;
+end;
+
+procedure SwapColors;
+var C:Byte;
+begin
+  C:=ForeColor; ForeColor:=BackColor;
+  if C<>GradientPaint then BackColor:=C;
+  if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1 end;
+  Colors;
 end;
 
 procedure DrawCanvas;
@@ -486,7 +537,8 @@ begin
     SmallText(164,103,'TAB: SWAP COLORS',15);
     SmallText(164,111,'ALT+C: CLEAR',15);
     HSpan(62,258,121,8);
-    SmallText(64,129,'SELECT: DRAG   CLR: EMPTY CLIP',15);
+    SmallText(64,126,'DITHER: END BOX, THEN PALETTE',15);
+    SmallText(64,133,'RAMP: MIX  PALETTE: SOLID',15);
     SmallText(64,141,'F4: GRID   ESC/CLICK: CLOSE',15); Exit;
   end;
   if OpenMenu=7 then
@@ -733,7 +785,8 @@ end;
 {$endif}
 
 procedure InitUI;
-begin LoadToolAtlas; InitView; ForeColor:=15; BackColor:=0;
+begin LoadToolAtlas; InitView; InitPaint; GradientArm:=0;
+  ForeColor:=15; BackColor:=0;
   BrushSize:=1; StrokeSize:=1;
   StatusValid:=False; ShiftHeld:=False; CtrlHeld:=False;
   CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
@@ -963,13 +1016,33 @@ begin
     end;
     Exit;
   end;
-  if (X>=2) and (X<78) and (Y>=126) and (Y<186) then
+  if (X>=2) and (X<78) and (Y>=PaletteY) and (Y<PaletteY+4*PaletteStep) then
   begin
-    if ((X-2) mod 19>=18) or ((Y-126) mod 15>=14) then Exit;
-    I:=((Y-126) div 15)*4+(X-2) div 19;
-    if Button=1 then ForeColor:=I else if Button=2 then BackColor:=I;
+    if ((X-2) mod 19>=18) or ((Y-PaletteY) mod PaletteStep>=PaletteHeight) then Exit;
+    I:=((Y-PaletteY) div PaletteStep)*4+(X-2) div 19;
+    if Button=1 then
+      if GradientArm<>0 then
+      begin
+        if GradientArm=1 then SetGradient(I,GradientLast,GradientStep)
+        else SetGradient(GradientFirst,I,GradientStep);
+        GradientArm:=0; ForeColor:=GradientPaint; CachedFore:=-1;
+      end else ForeColor:=I
+    else if Button=2 then BackColor:=I;
     Colors; Exit;
   end;
+  if (Button=1) and (Y>=GradientY) and (Y<GradientY+GradientHeight) then
+  begin
+    if (X>=GradientAX) and (X<GradientAX+GradientBoxWidth) then GradientArm:=1
+    else if (X>=GradientBX) and (X<GradientBX+GradientBoxWidth) then GradientArm:=2
+    else if (X>=GradientRampX) and (X<GradientRampX+GradientRampWidth) then
+    begin
+      SetGradient(GradientFirst,GradientLast,RampStep(X));
+      ForeColor:=GradientPaint; GradientArm:=0;
+    end else Exit;
+    CachedFore:=-1; Colors; Exit;
+  end;
+  {Any other control ends endpoint assignment without consuming its action.}
+  if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end;
   {$ifdef PP16_CLIP_ENABLED}
   if (Button=2) and (X>=2) and (X<20) and (Y>=18) and (Y<36) then
   begin
@@ -1001,7 +1074,7 @@ begin
   {$endif}
   if Button<>1 then Exit;
   if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
-  begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
+  begin SwapColors; Exit end;
   {$ifdef PP16_CLIP_ENABLED}
   if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
   begin BeginPaste; Exit end;
@@ -1102,7 +1175,7 @@ begin
    the 1:1 image preview, so release remains the one commit point.}
   if (X<PanX) or (X>=PanX+VisibleCells) or
      (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
-  if C<0 then C:=DocPixel(X,Y);
+  if C<0 then C:=DocPixel(X,Y) else C:=PaintColor(X,Y,C);
   SX:=CanvasX+(X-PanX)*Zoom;
   SY:=CanvasY+(Y-PanY)*Zoom;
   FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
@@ -1184,6 +1257,7 @@ begin
   if Gesture=2 then
   begin
     C:=DocPixel(DX,DY);
+    if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1 end;
     if ForeColor<>C then begin ForeColor:=C; Colors end;
     Exit;
   end;
@@ -1241,6 +1315,7 @@ begin
   begin Gesture:=3; ApplyGesture(S.X,S.Y); Exit end;
   if (OpenMenu<0) and ScreenToDoc(S.X,S.Y,DX,DY) then
   begin
+    if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end;
     if (S.Pressed and 2)<>0 then Gesture:=2
     {$ifdef PP16_CLIP_ENABLED}
     else if SelectedTool=0 then
@@ -1280,7 +1355,6 @@ begin
 end;
 
 procedure KeyInput(Key,Scan,Buttons:Byte);
-var Temp:Byte;
 begin
   if Gesture<>0 then
   begin
@@ -1320,6 +1394,7 @@ begin
   if Key=27 then
   begin
     if OpenMenu>=0 then ClosePopup
+    else if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end
     else if not MouseReady then RequestCommand(2);
     PointerBlocked:=Buttons<>0; Exit;
   end;
@@ -1334,7 +1409,7 @@ begin
       3:CopySelection; {Ctrl+C}
       {$endif}
       50,52,56:begin SetZoom(Key-48); RedrawView end;
-      9:begin Temp:=ForeColor; ForeColor:=BackColor; BackColor:=Temp; Colors end;
+      9:SwapColors;
       {$ifdef PP16_CLIP_ENABLED}
       22:BeginPaste; {Ctrl+V}
       24:CutSelection; {Ctrl+X}
@@ -1446,7 +1521,7 @@ begin
   {Exercise real control dispatch, including a consumed menu-dismissal click.}
   InitView;
   HandleClick(4,128,1); if ForeColor<>0 then Inc(F);
-  HandleClick(62,174,2); if BackColor<>15 then Inc(F);
+  HandleClick(62,PaletteY+3*PaletteStep+2,2); if BackColor<>15 then Inc(F);
   HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>2 then Inc(F);
   HandleClick(ZoomButtonX+2*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(5,3,1); HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
@@ -1739,7 +1814,8 @@ begin
     4:begin
         RequestCommand(2); KeyInput(9,15,0); KeyInput(9,15,0); KeyInput(13,28,0);
       end;
-    5:begin HandleClick(24,143,1); HandleClick(43,158,2); KeyInput(9,15,0) end;
+    5:begin HandleClick(24,PaletteY+PaletteStep+2,1);
+        HandleClick(43,PaletteY+2*PaletteStep+2,2); KeyInput(9,15,0) end;
     6:begin
         HandleClick(5,21,1); HandleClick(45,40,1);
         HandleClick(65,40,1); HandleClick(65,21,1);
@@ -2048,4 +2124,5 @@ begin
   UndoChecks:=F;
 end;
 {$endif}
+{$ifdef PP16_GRADIENT_TEST}{$I ../tests/GRADTEST.INC}{$endif}
 end.

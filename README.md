@@ -16,8 +16,8 @@ not contain its unavailable editor source or supplied artwork.  See the
 [plain-text PP16 user guide](PP16.DOC) for the release-style manual and
 [credits](docs/CREDITS.md) for the full reference notices.
 
-The 1.0 release uses the 8086 small memory model; an optional medium-model
-compatibility target is available on `v1.1`. Both use only conventional
+The 1.0 release uses the 8086 small memory model. Version 1.1 development uses
+Medium to accommodate gradient/dither painting. Both use only conventional
 memory at runtime.  PP16 needs no GRAFIX TSR, ADJMEM, EMS or XMS.  It is built
 with Free Pascal and its UI is designed for mouse-driven pixel work on original
 hardware as well as the included DOSBox-X workflow.
@@ -38,13 +38,21 @@ it is a 16-bit DOS application. Modern Windows requires suitable emulation.
 
 See the [distribution record](dist/README.md) for contents, checksums and
 validation. Version 1.0 includes the packed-buffer Clear improvements.
-Gradient/dither painting belongs to the upcoming version 1.1 work.
+Gradient/dither painting is available in the version 1.1 development build.
 
-The `v1.1` development branch records the agreed gradient-selector design in
-[docs/V1.1-PLAN.md](docs/V1.1-PLAN.md). A separate Medium build of the existing
-editor passes regression; see [setup and results](docs/MEDIUM-MODEL.md).
-Gradient painting is still planned; the packaged 1.0 editor remains the
-stable distribution.
+The `v1.1` development branch implements the permanent gradient selector
+beneath the compact palette. Click an endpoint box, then a palette colour to
+set it. Click the ramp to select 0-100% of the right-hand colour in exact 10%
+steps. The foreground swatch shows the active pattern and percentage. Brush,
+Line, Circle, Square, Bucket Fill and Clear to Colour use it. An ordinary
+palette click or canvas eyedropper selects solid paint again; Escape cancels
+endpoint selection. Right-clicking the palette still sets the solid background.
+Tab from gradient paint selects that background as the solid foreground.
+The packaged 1.0 editor remains the stable distribution.
+
+See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
+[development scope](docs/V1.1-PLAN.md), and
+[Medium runtime setup](docs/MEDIUM-MODEL.md).
 
 ## Current editor capabilities
 
@@ -131,10 +139,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\check-pp16.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-pp16.ps1
 ```
 
-These commands default to Small. For the Medium trial, first prepare its
-matching FPC 3.2.2 runtime using [these instructions](docs/MEDIUM-MODEL.md),
-then pass `-MemoryModel Medium` to the build, check and run scripts. Its
-executable and atlas are isolated in `out/medium/`.
+On `v1.1` these commands default to Medium. First prepare its matching FPC
+3.2.2 runtime using [these instructions](docs/MEDIUM-MODEL.md) if needed.
+The executable and atlas are in `out/medium/`. The upgraded editor exceeds
+Small's code limit; use the frozen 1.0 distribution for that build.
+Pass `-GradientOnly -Cycles 3000` to the check script for focused gradient
+checks; the normal full run includes them too.
 
 With **PP16_DEV opened as the VS Code workspace**, Ctrl+Shift+B builds PP16.
 The `PP16: Build and run editor` task opens a visible emulator.
@@ -142,16 +152,17 @@ The existing watch-log task follows `obj/monitor.log`. PP16 checks keep separate
 reports under `obj/pp16-*`, preserving previous runs. The default check uses
 3,000 cycles/ms to finish quickly; the interactive profile uses 750.
 Pass `-UndoOnly -Cycles 750` for focused M5 checks or `-FileOnly -Cycles 750`
-for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests now live in separate DOS harnesses under `obj/checks`, built by
+for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests live in separate DOS harnesses under `obj/medium-checks`, built by
 `build-checks.ps1`; focused clipboard UI, file, and ellipse harnesses keep test
-code separate from the editor's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
+code separate from the production editor. The production EXE no longer embeds `/TEST`, `/PERF`,
 `/UNDOTEST` or the legacy demos; the check script selects the correct harness.
 
-`out/PP16.EXE` is the current program; `out/M9.EXE` preserves the accepted
+`out/medium/PP16.EXE` is the current development program; `out/PP16.EXE`
+retains the pre-gradient Small build. `out/M9.EXE` preserves the accepted
 optimized M9 checkpoint; `out/M4.EXE` preserves the previous
 drawing checkpoint; `out/M1.EXE` preserves the passing M1
 checkpoint and `out/HXTEST.EXE` preserves the original smoke test. On the HX,
-copy PP16.EXE and run `PP16` with a mouse driver already loaded. No GRAFIX TSR
+copy PP16.EXE and PP16UI.P16 together and run `PP16` with a mouse driver already loaded. No GRAFIX TSR
 or ADJMEM command is required: PP16 reserves the needed portion of the video
 page through DOS, or accepts an existing 32 KiB reservation. It refuses to
 overwrite an existing allocation. `out/M1.EXE` retains the keyboard-only demo.

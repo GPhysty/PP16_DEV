@@ -25,7 +25,7 @@ elif ui:
     assert pixels[0] == 1 and pixels[192*320] == 1
     assert pixels[28*320+84] == 7 and pixels[157*320+213] == 7
     for color in range(16):
-        assert pixels[(133+(color//4)*15)*320+10+(color%4)*19] == color
+        assert pixels[(130+(color//4)*11)*320+10+(color%4)*19] == color
 else:
     assert [pixels[i] for i in (0, 319, 199*320, 63999)] == [15, 12, 10, 9]
     for color in range(16):

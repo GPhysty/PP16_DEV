@@ -1,4 +1,4 @@
-param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Small')
+param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Medium')
 $ErrorActionPreference = 'Stop'
 $dosbox = Join-Path $env:USERPROFILE '.vscode/extensions/xsro.vscode-dosbox-0.1.8-win32-x64/emu/dosbox_x/win32-x64/dosbox-x.exe'
 if (-not (Test-Path -LiteralPath $dosbox)) { throw 'Configured DOSBox-X extension executable is missing.' }

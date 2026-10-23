@@ -8,7 +8,7 @@ PIXELplus 256 editor source or supplied graphics.
 
                          ***  PP16 User Information  ***
 
-                               PP16 1.0 - 2026 Edition
+                         PP16 1.1 Development - 2026 Edition
                        Copyright (C) 2026 Bartholomew Harner
                                  All rights reserved.
 
@@ -18,6 +18,10 @@ assistance from the OpenAI Codex AI assistant.
 PIXELplus 256 by Chris Chadwick is acknowledged as a workflow and behaviour
 reference.  It is not PP16 source code.  See section 10 for the complete
 credit and reference notice.
+
+This checkout's guide describes version 1.1 development.  Its current build
+is in out\medium; copy PP16.EXE and PP16UI.P16 together to run it under DOS.
+The frozen version 1.0 installation package includes its own 1.0 user guide.
 
 PP16 saves important work carefully, but no software can protect against every
 possible hardware, power or media failure.  Keep copies of work that matters.
@@ -73,6 +77,9 @@ PP16 includes the following features:
 
  * Brush, bucket fill, line, circle and square drawing tools.  Brush size is
    shared by the brush and shape tools and can be set from 1 to 5 pixels.
+
+ * Two-colour gradient/dither paint in exact 10% steps.  The permanent selector
+   sits below the palette and the foreground swatch shows the active pattern.
 
  * Rectangle and ellipse selection, with optional Ctrl-constrained squares
    and circles.
@@ -235,6 +242,7 @@ The PP16 screen is arranged for quick sprite work:
 
  * Colour panel -- at the lower left.  Left-click a palette colour to choose
    the foreground colour; right-click one to choose the background colour.
+   The endpoint boxes and dither ramp below the palette select gradient paint.
 
  * Edit canvas -- the large central grid.  This is the zoomed view of the
    64 by 64 document and is where drawing and selections take place.
@@ -264,7 +272,9 @@ Drawing and colour
 
 Use left-click or left-drag on the edit canvas to draw with the selected tool.
 Right-click or right-drag on the canvas samples the foreground colour at the
-point under the pointer.  Tab swaps the foreground and background colours.
+point under the pointer.  Tab swaps solid foreground and background colours.
+When gradient paint is active, Tab selects the solid background as foreground
+and keeps the background colour unchanged.
 
 Brush paints square marks at the selected size.  Bucket Fill replaces the
 connected area under the pointer with the foreground colour.  Circle begins
@@ -273,8 +283,27 @@ endpoint.  These shape tools show an outline while dragging; releasing the
 left button commits the shape as one action.  Escape cancels an unfinished
 stroke or shape.
 
+To use gradient paint, click the left endpoint box below the palette, then
+left-click its palette colour.  Repeat with the right endpoint box.  Click
+along the ramp between the boxes to choose 0%, 10%, 20%, ... 100% of the right
+endpoint colour.  A marker shows the chosen step; the foreground swatch shows
+the dither pattern and percentage.  Escape cancels endpoint colour selection.
+
+The mix uses a repeating 10 by 10 pixel tile with exact 10% increments.  It
+stays anchored to image coordinates as strokes overlap or the canvas pans.
+The pattern consists of ordinary pixels from the two chosen palette colours;
+it does not add hardware colours.  A partial tile at an image edge can have a
+different local ratio.  Endpoint colours and the selected step are session
+controls; saved images contain the resulting pixels.
+
+Brush, Line, Circle, Square, Bucket Fill and Clear to Colour all use the mix.
+Shape previews match the committed pattern.  An ordinary left palette click
+or canvas eyedropper selects solid paint again, retaining the endpoint settings.
+Right palette clicks still set the solid background.  Copy, Cut, Paste, Open
+and Save preserve literal image pixels rather than applying the active mix.
+
 The Action menu provides Clear and Clear to Colour.  Clear fills the image
-with black; Clear to Colour fills it with the foreground colour.  Alt+C is
+with black; Clear to Colour fills it with the foreground colour or mix.  Alt+C is
 the keyboard shortcut for Clear.  Either clear action can be undone.
 
 Selection and Cut

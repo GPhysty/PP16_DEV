@@ -6,8 +6,8 @@ TARGET
 - 8086-compatible instructions only
 - DOS real mode
 - FPC 3.2.2 i8086 cross compiler
-- Small memory model by default and for release 1.0; the isolated Medium
-  compatibility target on v1.1 is documented in docs/MEDIUM-MODEL.md
+- Medium memory model for v1.1 gradient development; release 1.0 is Small.
+  Runtime setup and the compatibility baseline are in docs/MEDIUM-MODEL.md.
 - 320x200 Tandy 16-color Mode 09h
 - Physical HX compatibility is the final authority
 

@@ -1,16 +1,20 @@
-# Medium-model compatibility trial - 2026-10-23
+# Medium-model setup and compatibility baseline - 2026-10-23
 
-The existing editor compiles and passes its full DOSBox-X regression with
-FPC's `-WmMedium` memory model on branch `v1.1`. This is a separate build
-target, before gradient/dither painting. The default build and frozen 1.0
-distribution remain small-model.
+Version 1.1 now defaults to Medium for gradient/dither development; its current
+behavior and measurements are in [GRADIENT-DITHER.md](GRADIENT-DITHER.md).
+The measurements below record the successful pre-gradient compatibility
+trial. The frozen 1.0 distribution is still Small and has not been rebuilt.
+
+The pre-gradient editor compiled and passed its full DOSBox-X regression with
+FPC's `-WmMedium` memory model on branch `v1.1`, using a separate build target
+while Small remained the default at that checkpoint.
 
 ## What changed
 
 `pp16-medium.cfg` keeps the existing DOS/8086 and `-O1 -Os` settings, selects
 Medium, and uses separate runtime units, object files and output directories.
 The build, check and interactive launch scripts accept `-MemoryModel Medium`;
-omitting that argument still selects Small. The medium executable and toolbar
+omitting that argument now selects Medium. The medium executable and toolbar
 atlas live in `out/medium/`.
 
 The program and test-launcher exit hooks now use FPC's model-dependent
@@ -129,6 +133,6 @@ similar UI performance in this emulator configuration; they do not establish
 an exact slowdown percentage or hardware timing. The comparison includes
 the separately built Medium runtime as well as changed code addressing.
 
-These are DOSBox-X results, not physical Tandy 1000HX measurements. Interactive
-acceptance and a physical HX run remain outstanding before adopting Medium
-for a release. Gradient/dither painting is still unimplemented.
+These are pre-gradient DOSBox-X results, not physical Tandy 1000HX measurements.
+Interactive acceptance and a physical HX run remain outstanding before a
+Medium release. See the current gradient record linked above for later work.

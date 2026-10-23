@@ -1,9 +1,10 @@
 unit TDoc;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
+uses TPaint;
 const DocWidth=64; DocHeight=64; DocBytes=2048;
 type TDocPixels=array[0..DocBytes-1] of Byte;
-     TDocRow=array[0..31] of Byte;
+     TDocRow=TPaintRow;
 var DocDirty:Boolean;
 procedure DocCopy(var Data:TDocPixels);
 procedure DocReadRow(Y:Integer; var Row:TDocRow);
@@ -34,9 +35,10 @@ var Pixels:array[0..DocBytes-1] of Byte;
     UndoValid,UndoDirty,ActionActive,ActionChanged,PendingDirty:Boolean;
     DirtyFirst,DirtyLast:array[0..63] of Integer;
     {A 12-bit packed stack holds every possible document coordinate using
-     6,144 bytes, rather than 8,192 bytes for 4,096 Words. Pixels are changed
-     when queued, so no coordinate can be queued more than once.}
+     6,144 bytes, rather than 8,192 bytes for 4,096 Words. A visited bitmap
+     bounds the traversal even when dither paint leaves a pixel unchanged.}
     FillStack:array[0..6143] of Byte;
+    FillVisited:array[0..511] of Byte;
     FillCount:Word; StampSize:Integer;
 
 procedure ResetDirty;
@@ -109,9 +111,26 @@ begin
 end;
 
 procedure DocClear(C:Byte);
-var I:Word; B:Byte;
+var I,Y:Word; B:Byte; Row:TDocRow; Changed:Boolean;
 begin
   if ActionActive then Exit;
+  C:=SolidPaint(C);
+  if C=GradientPaint then
+  begin
+    Changed:=False;
+    for Y:=0 to 63 do
+    begin
+      PaintReadRow(Y,Row);
+      if CompareByte(Pixels[Y*32],Row,SizeOf(Row))<>0 then
+      begin Changed:=True; Break end;
+    end;
+    if not Changed then Exit;
+    Move(Pixels,UndoPixels,DocBytes);
+    UndoDirty:=DocDirty; UndoValid:=True;
+    for Y:=0 to 63 do
+    begin PaintReadRow(Y,Row); Move(Row,Pixels[Y*32],SizeOf(Row)) end;
+    DocDirty:=True; MarkAll; Exit;
+  end;
   C:=C and 15; B:=C or (C shl 4);
   {A uniform document is a no-op: preserve its dirty flag and prior undo.}
   for I:=0 to DocBytes-1 do if Pixels[I]<>B then
@@ -181,7 +200,7 @@ end;
 
 procedure PlotDoc(X,Y,C:Integer);
 begin
-  DocSetPixel(X,Y,C);
+  DocSetPixel(X,Y,PaintColor(X,Y,C));
 end;
 
 function ValidStampSize(Size:Integer):Integer;
@@ -247,32 +266,37 @@ begin
 end;
 
 function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
-var Old:Byte; P:Word; WasActive:Boolean;
+var Old:Byte; P:Word; WasActive,Changed:Boolean;
 
   procedure Add(NX,NY:Integer);
+  var N:Word; Mask:Byte;
   begin
     if (NX<0) or (NX>=64) or (NY<0) or (NY>=64) then Exit;
+    N:=Word(NY)*64+NX; Mask:=Byte(1 shl (N and 7));
+    if (FillVisited[N shr 3] and Mask)<>0 then Exit;
     if DocPixel(NX,NY)<>Old then Exit;
-    DocSetPixel(NX,NY,C);
+    FillVisited[N shr 3]:=FillVisited[N shr 3] or Mask;
+    if DocSetPixel(NX,NY,PaintColor(NX,NY,C)) then Changed:=True;
     {At most all 4,096 pixels are queued, which exactly fits the stack.}
-    FillPush(Word(NY)*64+NX);
+    FillPush(N);
   end;
 
 begin
   DocFloodFill:=False;
   if (X<0) or (X>=64) or (Y<0) or (Y>=64) then Exit;
-  C:=C and 15; Old:=DocPixel(X,Y);
+  C:=SolidPaint(C); Old:=DocPixel(X,Y);
   if Old=C then Exit;
   WasActive:=ActionActive;
   if not WasActive then DocBeginAction;
-  FillCount:=0; Add(X,Y);
+  FillCount:=0; Changed:=False; FillChar(FillVisited,SizeOf(FillVisited),0);
+  Add(X,Y);
   while FillCount<>0 do
   begin
     P:=FillPop; X:=P and 63; Y:=P shr 6;
     Add(X-1,Y); Add(X+1,Y); Add(X,Y-1); Add(X,Y+1);
   end;
   if not WasActive then DocCommitAction;
-  DocFloodFill:=True;
+  DocFloodFill:=Changed;
 end;
 
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;

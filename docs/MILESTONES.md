@@ -376,3 +376,23 @@ dumps match the Small baseline. Rebuilding Small produces the exact 1.0
 executable bytes. See [the trial record](MEDIUM-MODEL.md) for setup and results.
 Physical HX and interactive acceptance remain outstanding. Gradient painting
 is not implemented by this checkpoint.
+
+## PP16 1.1 gradient/dither checkpoint - 2026-10-23
+
+The permanent two-endpoint dither selector is implemented beneath a compact
+palette, with exact 10% steps and an active-pattern foreground swatch. Brush,
+Line, Circle, Square, Bucket Fill and Clear to Colour share the image-anchored
+paint resolver. Fill uses a visited bitmap; gradient clears use packed rows
+and retain solid clear speed, no-op behavior and undo. Literal clipboard and
+file pixels remain unchanged. Medium is now the development default; 1.0's
+Small installation payload is preserved. The user approved the rendered layout.
+
+Focused gradient validation passed with 838,208 assertions in
+`obj/pp16-medium-20261023-035655-c12485`. After the selector redraw optimization,
+the complete regression included 838,210 gradient assertions. Production
+Save/Open, independent gradient/native/clipboard file verification and DOS
+memory restoration passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-041244-43a210`. Production code is 70,882 bytes;
+initialized data is 4,564 bytes; startup near heap is 6,650 bytes. See
+[gradient behavior and evidence](GRADIENT-DITHER.md). Physical HX validation
+remains outstanding.

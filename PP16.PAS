@@ -13,9 +13,9 @@ begin
   WriteErrorsToStdErr:=False;
   PreviousExit:=ExitProc; ExitProc:=@CleanExit;
   {$ifdef FPC_MM_MEDIUM}
-  WriteLn('PP16 M9 - real-mode 8086 / medium model');
+  WriteLn('PP16 1.1 - real-mode 8086 / medium model');
   {$else}
-  WriteLn('PP16 M9 - real-mode 8086 / small model');
+  WriteLn('PP16 1.1 - real-mode 8086 / small model');
   {$endif}
   WriteLn('Initial near heap bytes=',MemAvail);
   if not ReserveVideoMemory then begin WriteLn('REFUSED: ',VideoMemoryError); Halt(2) end;

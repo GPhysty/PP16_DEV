@@ -1,7 +1,10 @@
-param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Small')
+param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Medium')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
+    if ($MemoryModel -eq 'Small') {
+        throw 'The v1.1 gradient checks require Medium. Use the v1.0 revision for Small builds.'
+    }
     $config = if ($MemoryModel -eq 'Medium') { 'pp16-medium.cfg' } else { 'pp16.cfg' }
     $checks = if ($MemoryModel -eq 'Medium') { 'obj/medium-checks' } else { 'obj/checks' }
     $fileUnits = if ($MemoryModel -eq 'Medium') { 'obj/medium-filechecks' } else { 'obj/filechecks' }
@@ -27,4 +30,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'CLP file harness build failed' }
     & $compiler '-n' "@$config" "-FU$checks" "-FE$checks" '-oPPSTART.EXE' 'tests/PPSTART.PAS'
     if ($LASTEXITCODE -ne 0) { throw 'Production launch driver build failed' }
+    $gradientUnits = "$checks/GRADIENT"
+    New-Item -ItemType Directory -Force -Path $gradientUnits | Out-Null
+    & $compiler '-n' "@$config" "-FU$gradientUnits" "-FE$checks" '-dPP16_GRADIENT_TEST' '-dPP16_CLIP_ENABLED' '-oPPGRAD.EXE' 'tests/GRADRUN.PAS'
+    if ($LASTEXITCODE -ne 0) { throw 'Gradient harness build failed' }
 } finally { Pop-Location }

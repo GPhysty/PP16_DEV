@@ -1,7 +1,10 @@
-param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Small')
+param([ValidateSet('Small','Medium')][string]$MemoryModel = 'Medium')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
+    if ($MemoryModel -eq 'Small') {
+        throw 'The v1.1 gradient editor requires Medium. The frozen Small release is in dist/PP16V10.'
+    }
     $config = if ($MemoryModel -eq 'Medium') { 'pp16-medium.cfg' } else { 'pp16.cfg' }
     $output = if ($MemoryModel -eq 'Medium') { 'out/medium' } else { 'out' }
     $units = if ($MemoryModel -eq 'Medium') { 'obj/medium' } else { 'obj' }
