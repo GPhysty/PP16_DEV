@@ -5,3 +5,7 @@ dist/PP16V10/FPCRTL.TXT -whitespace
 dist/PP16V10/*.EXE binary
 dist/PP16V10/*.P16 binary
 dist/*.ZIP binary
+
+# Preserve vendored shader and license bytes, including upstream formatting.
+config/shaders/crt-geom.glsl -text -whitespace
+config/shaders/COPYING.txt -text -whitespace

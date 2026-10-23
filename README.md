@@ -148,6 +148,9 @@ checks; the normal full run includes them too.
 
 With **PP16_DEV opened as the VS Code workspace**, Ctrl+Shift+B builds PP16.
 The `PP16: Build and run editor` task opens a visible emulator.
+Its interactive profile enables aspect correction, Normal 4x scaling and the
+included [CRT-Geom shader](config/shaders/README.md). These settings take effect
+on the next launch through `run-pp16.ps1`.
 The existing watch-log task follows `obj/monitor.log`. PP16 checks keep separate
 reports under `obj/pp16-*`, preserving previous runs. The default check uses
 3,000 cycles/ms to finish quickly; the interactive profile uses 750.
