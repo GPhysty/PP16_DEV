@@ -61,9 +61,6 @@ Future controls must own their drag from initial press to release, consume
 palette/dialog clicks, and cancel previews on Escape. No paint or GUI work
 has been started. PicoMEM EMS/XMS support is recorded as optional future memory.
 
-
-
-
 ## M3 - reference-style interface and view
 
 User accepted M2's mouse demonstration and supplied PP256 layout, dropdown
