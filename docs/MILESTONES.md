@@ -346,3 +346,17 @@ harness checks all four Image and Clipboard frame edges at 1x, 4x and 8x. The
 full M1-M9 regression passed at 3,000 cycles/ms in
 `obj/pp16-20260927-201235-639031`. Production build: 67,478 bytes (60,604 code
 bytes and 6,772 initialized-data bytes), leaving 4,932 code bytes.
+
+## PP16 1.0 distribution checkpoint - 2026-10-23
+
+The accepted editor, including packed-buffer Clear and Clear to Colour, is
+packaged for end users in `dist/PP16V10/` and `dist/PP16V10.ZIP`. The package
+includes the required toolbar atlas, a DOS batch installer, user manual,
+quick help, installation instructions, credit/runtime notices and checksums.
+See [the distribution record](../dist/README.md) for source provenance and
+validation. The production EXE and atlas match the full passing regression
+from `obj/pp16-20261022-231640-28f570`; isolated installer checks and installed
+editor Save/Open passed in `obj/dist-1.0-20261023-5aa6eba2`.
+
+Version 1.1 is the next development line for gradient/dither paint. Neither
+that feature nor a memory-model migration is part of the 1.0 distribution.

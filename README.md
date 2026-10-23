@@ -21,6 +21,24 @@ memory at runtime.  It needs no GRAFIX TSR, ADJMEM, EMS or XMS.  PP16 is built
 with Free Pascal and its UI is designed for mouse-driven pixel work on original
 hardware as well as the included DOSBox-X workflow.
 
+## Install PP16 1.0 - no compiler needed
+
+The ready-to-run distribution is [dist/PP16V10.ZIP](dist/PP16V10.ZIP).
+Its unpacked files are available in [dist/PP16V10/](dist/PP16V10/), with
+[installation instructions](dist/PP16V10/README.TXT),
+[quick help](dist/PP16V10/HELP.TXT), and the complete
+[user manual](dist/PP16V10/PP16.DOC).
+
+Extract the ZIP, change into its directory under DOS, and run `INSTALL`.
+The default destination is `C:\PP16`; `INSTALL D:\PP16` selects another
+DOS 8.3 path. The installer preserves existing files and needs only standard
+DOS commands. PP16 targets the Tandy 1000HX with 640 KiB RAM and a mouse driver;
+it is a 16-bit DOS application. Modern Windows requires suitable emulation.
+
+See the [distribution record](dist/README.md) for contents, checksums and
+validation. Version 1.0 includes the packed-buffer Clear improvements.
+Gradient/dither painting belongs to the upcoming version 1.1 work.
+
 ## Current editor capabilities
 
 - **Brush** (top row, fourth icon): left-click or drag to paint square strokes.

@@ -1,0 +1,35 @@
+PP16 1.0 - CREDITS AND REFERENCE NOTICES
+======================================
+
+PP16
+Copyright (C) 2026 Bartholomew Harner. All rights reserved.
+Designed and developed by Bartholomew Harner, with implementation assistance
+from the OpenAI Codex AI assistant.
+
+PP16 is an independent new implementation. PIXELplus 256 by Chris Chadwick
+is a workflow and behaviour reference. PP16 does not contain its unavailable
+editor source or supplied artwork and is not presented as the original work.
+PIXELplus 256 Copyright (C) 1995 Chris Chadwick (Somerset, England).
+The original PIXELplus package is not included in this distribution.
+
+GRAFIX 2.60 Copyright (C) 1988-2005 by Joseph A. Albrecht
+ADJMEM 1.1 Copyright 1989-2005 (C) by Joseph A. Albrecht
+
+PP16's TVIDEO implementation adapts Mode 09h addressing, nibble and page
+selection algorithms from GRAFIX 2.60. Its video-memory reservation is a new
+DOS-allocation implementation informed by ADJMEM's reservation requirements.
+No original TSR or Pascal object file from those packages is linked.
+
+GRAFIX.DOC states:
+"I am making GRAFIX public domain including all the source code. The only
+thing I ask is that my name and copyright must be included no matter what
+changes are made."
+
+FREE PASCAL RUNTIME
+The editor is built with Free Pascal 3.2.2 and links its runtime library.
+FPCRTL.TXT contains the supplied COPYING.FPC runtime notice and exception.
+COPYING.TXT contains the accompanying GNU Library General Public License.
+These files are reproduced verbatim from the project's compiler package.
+They describe the Free Pascal runtime; they do not replace PP16's copyright.
+
+Project repository: https://github.com/GPhysty/PP16_DEV

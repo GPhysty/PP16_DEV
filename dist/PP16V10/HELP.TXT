@@ -1,0 +1,60 @@
+PP16 1.0 - QUICK HELP
+====================
+
+START: load a DOS mouse driver, CD to the installed directory, then PP16.
+Keep PP16UI.P16 in that directory beside PP16.EXE.
+
+DRAWING
+  Left drag              Draw with the selected tool and foreground colour.
+  Right click/drag       Sample a foreground colour from the image.
+  Left palette click     Select foreground colour.
+  Right palette click    Select background colour.
+  Tab                    Swap foreground and background colours.
+  Size - / +             Set Brush, Line, Circle and Square size: 1 to 5.
+  Bucket Fill            Fill a connected area with the foreground colour.
+  Action / Clear         Clear to black; Alt+C also clears to black.
+  Clear to Colour        Clear to the foreground colour.
+  Ctrl+Z                 Undo one completed document action; there is no Redo.
+  Escape                 Cancel an unfinished stroke, shape, paste or dialog.
+
+SELECTION AND CLIPBOARD
+  Select + left drag     Select a rectangle.
+  Right-click Select     Toggle rectangle/ellipse selection.
+  Ctrl + selection drag  Constrain to square/circle.
+  Ctrl+C                 Copy the selection.
+  Ctrl+X or Cut icon     Copy and clear the selection to background colour.
+  Ctrl+V or Clipboard    Begin floating paste placement.
+  Mouse / arrows         Move the floating paste.
+  Left click / Enter     Commit the paste. Escape cancels it.
+  Edit / Paste Behind    Restrict paste to background-colour destinations.
+  Clipboard CLR          Empty the clipboard.
+  Clipboard buttons      Mirror, rotate clockwise, or scale the clipboard.
+  Scale left/right       Add/remove one pixel in width and height.
+
+VIEW AND FILES
+  2 / 4 / 8              Choose zoom.
+  Arrow keys             Pan by one image pixel.
+  Shift + arrows         Pan by half the visible view.
+  Image preview drag     Centre the view at the pointer.
+  F4                     Toggle the canvas grid.
+  F1                     Open built-in Quick Help.
+  File / New             Start a blank black image; unsaved work is protected.
+  File / Save, Save As   Save the image as NAME.P16.
+  Save As NAME.CLP       Save the current clipboard instead of the image.
+  File / Open            Open a .P16 image or .CLP clipboard.
+  File / Exit            Return to DOS; choose Cancel to retain unsaved work.
+
+Use DOS 8.3 names, such as HERO.P16, in the current directory. File dialogs
+do not browse directories. Never save your own drawing as PP16UI.P16.
+Replacement backups and failed temporary writes are kept below TRASH.
+
+TROUBLESHOOTING
+  Refused/unsupported    Check Tandy hardware/emulation and 640 KiB installed
+                        RAM. PP16 also refuses conflicting video memory use.
+  NO MOUSE              Load a compatible DOS mouse driver before PP16.
+  Missing tool icons    Restore the supplied PP16UI.P16 beside PP16.EXE.
+  Save fails            Check free space, write protection and the filename;
+                        preserve the displayed TRASH recovery folder.
+  INSTALL refuses       Choose a new folder; it protects existing files.
+
+The full instructions, credits and file-recovery details are in PP16.DOC.

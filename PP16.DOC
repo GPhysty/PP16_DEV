@@ -8,7 +8,7 @@ PIXELplus 256 editor source or supplied graphics.
 
                          ***  PP16 User Information  ***
 
-                                 PP16 - 2026 Edition
+                               PP16 1.0 - 2026 Edition
                        Copyright (C) 2026 Bartholomew Harner
                                  All rights reserved.
 
@@ -135,6 +135,10 @@ PP16.EXE        The PP16 editor program.
 PP16UI.P16      The required 64 by 64 toolbar-icon resource.  Keep this file
                 beside PP16.EXE; it is not an editable drawing document.
 PP16.DOC        This user information file.
+README.TXT      Distribution installation and getting-started instructions.
+HELP.TXT        Quick controls and troubleshooting for end users.
+INSTALL.BAT     Distribution installer; run from the extracted package folder.
+CREDITS.TXT     Author, reference and runtime credit notices.
 *.P16           A native PP16 64 by 64 image.
 *.CLP           A native PP16 clipboard image, rectangular or elliptical.
 
@@ -200,6 +204,11 @@ PP16UI.P16 resource.  For example:
 
     CD \PP16
     PP16
+
+The ready-to-run distribution includes INSTALL.BAT.  From its extracted
+directory, type INSTALL to copy the program and user documentation into
+C:\PP16, or INSTALL D:\PP16 to choose another DOS 8.3 destination.  Existing
+package files are never overwritten.  See README.TXT before installation.
 
 PP16 enters Tandy graphics mode after it has verified that the required video
 memory is available.  If the memory protection check fails, PP16 returns to
@@ -320,7 +329,7 @@ Tab                        Swap foreground and background colours.
 Alt+C                      Clear the image to black.
 Escape                     Cancel a current action, dialog or floating paste.
 
-At 1X and 2X, the entire 64 by 64 image fits within the canvas, so panning has
+At 2X, the entire 64 by 64 image fits within the canvas, so panning has
 no further range.  At 4X and 8X, use the arrow keys for fine movement or drag
 the image preview for an immediate coarse move.
 
