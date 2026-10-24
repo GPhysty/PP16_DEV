@@ -24,6 +24,8 @@ procedure DocBrush(X,Y:Integer; C:Byte; Size:Integer);
 procedure DocLine(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 procedure DocSquare(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
+procedure DocFilledSquare(X1,Y1,X2,Y2:Integer; Outline,Fill:Byte; Size:Integer);
+procedure DocFilledCircle(X1,Y1,X2,Y2:Integer; Outline,Fill:Byte; Size:Integer);
 function DocFloodFill(X,Y:Integer; C:Byte):Boolean;
 function TakeDirtyRow(Y:Integer; var X1,X2:Integer):Boolean;
 function DocAllDirty:Boolean;
@@ -35,6 +37,8 @@ var Pixels:array[0..DocBytes-1] of Byte;
     UndoPixels,PendingPixels:array[0..DocBytes-1] of Byte;
     UndoValid,UndoDirty,ActionActive,ActionChanged,PendingDirty:Boolean;
     DirtyFirst,DirtyLast:array[0..63] of Integer;
+    CircleFillX:Integer;
+    CircleInnerLeft,CircleInnerRight:array[0..63] of Integer;
     {A 12-bit packed stack holds every possible document coordinate using
      6,144 bytes, rather than 8,192 bytes for 4,096 Words. A visited bitmap
      bounds the traversal even when dither paint leaves a pixel unchanged.}
@@ -249,6 +253,51 @@ procedure DocCircle(X1,Y1,X2,Y2:Integer; C:Byte; Size:Integer);
 begin
   StampSize:=ValidStampSize(Size);
   RasterCircle(X1,Y1,X2,Y2,C,PlotDocStamp);
+end;
+
+procedure DocFilledSquare(X1,Y1,X2,Y2:Integer; Outline,Fill:Byte; Size:Integer);
+var Left,Top,Right,Bottom,X,Y,Before,After:Integer;
+begin
+  SquareEndpoint(X1,Y1,X2,Y2);
+  Left:=X1; Right:=X2; if Left>Right then begin Left:=X2; Right:=X1 end;
+  Top:=Y1; Bottom:=Y2; if Top>Bottom then begin Top:=Y2; Bottom:=Y1 end;
+  Size:=ValidStampSize(Size); Before:=(Size-1) div 2; After:=Size div 2;
+  {Fill only the gap between the brush-width borders. Avoid transient writes
+   under the outline, which would turn an unchanged tiny shape into an edit.}
+  for Y:=Top+After+1 to Bottom-Before-1 do
+    for X:=Left+After+1 to Right-Before-1 do DocSetPixel(X,Y,Fill);
+  DocSquare(X1,Y1,X2,Y2,Outline,Size);
+end;
+
+procedure CircleFillEdge(X,Y,C:Integer);
+var First,Last,PY,Before,After:Integer;
+begin
+  Before:=(StampSize-1) div 2; After:=StampSize div 2;
+  First:=Y-Before; Last:=Y+After;
+  if First<0 then First:=0; if Last>63 then Last:=63;
+  for PY:=First to Last do begin
+    if (X<=CircleFillX) and (X+After>CircleInnerLeft[PY]) then
+      CircleInnerLeft[PY]:=X+After;
+    if (X>=CircleFillX) and (X-Before<CircleInnerRight[PY]) then
+      CircleInnerRight[PY]:=X-Before;
+  end;
+end;
+
+procedure DocFilledCircle(X1,Y1,X2,Y2:Integer; Outline,Fill:Byte; Size:Integer);
+var X,Y,Left,Right:Integer;
+begin
+  StampSize:=ValidStampSize(Size); CircleFillX:=X1;
+  for Y:=0 to 63 do begin CircleInnerLeft[Y]:=-32768; CircleInnerRight[Y]:=32767 end;
+  {Measure the inner edges of the existing midpoint-circle brush stamps.
+   Off-document X values are kept so clipped circles still fill to the edge.}
+  RasterCircle(X1,Y1,X2,Y2,0,CircleFillEdge);
+  for Y:=0 to 63 do
+    if (CircleInnerLeft[Y]<>-32768) and (CircleInnerRight[Y]<>32767) then begin
+      Left:=CircleInnerLeft[Y]+1; Right:=CircleInnerRight[Y]-1;
+      if Left<0 then Left:=0; if Right>63 then Right:=63;
+      for X:=Left to Right do DocSetPixel(X,Y,Fill);
+    end;
+  DocCircle(X1,Y1,X2,Y2,Outline,Size);
 end;
 
 procedure FillPush(P:Word);

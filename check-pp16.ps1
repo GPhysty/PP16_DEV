@@ -147,6 +147,10 @@ MEMINFO > FILEPOST.TXT
         if (-not $report.Contains($pair[1]) -or $report -match 'FAIL:|Runtime error') { throw "Failed $($pair[0]); see $runDir" }
     }
     if ((Get-Content "$runDir/BEFORE.TXT" -Raw) -ne (Get-Content "$runDir/AFTER.TXT" -Raw)) { throw 'DOS memory chain did not restore exactly.' }
+    if (-not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $FileOnly -or $ClipOnly -or $GradientOnly)) {
+        & python -X utf8 tests/filledshapecheck.py $runDir
+        if ($LASTEXITCODE -ne 0) { throw 'Independent filled-shape verification failed.' }
+    }
     if ($GradientOnly -or -not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $FileOnly -or $ClipOnly)) {
         & python -X utf8 tests/gradfiles.py $runDir
         if ($LASTEXITCODE -ne 0) { throw 'Independent gradient file verification failed.' }

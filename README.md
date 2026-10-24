@@ -62,8 +62,13 @@ See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
   undoable action. The currently selected drawing tool does not change.
 - **Circle, Square, Line** (bottom row, second through fourth icons): drag with
   the foreground color. Circle starts at its centre; Square starts at its first
-  corner. Their live canvas outline previews the result before release. Each
-  completed shape is one undoable action; Escape cancels it.
+  corner. A one-screen-pixel dashed gray guide shows the position while dragging.
+  Release applies the selected color, dither pattern and thickness as one
+  undoable action; Escape removes the guide without drawing.
+  **Right-click Circle or Square** to toggle its filled mode. The tool label
+  shows **FILLED CIRCLE** or **FILLED SQUARE**. The primary paint draws the border
+  at the selected thickness; the secondary color fills the interior, including
+  black. Each tool remembers its mode for the session.
 - **Size selector** (below the tool icons): use its - / + buttons to choose a
   shared 1–5 px square brush for Brush, Circle, Square and Line.
 - **Bucket Fill** (top row, third icon): left-click a connected area to replace

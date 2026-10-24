@@ -45,6 +45,9 @@ var OpenMenu:Integer;
     Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
     ShapeTool:Byte; ShapeX,ShapeY:Integer;
     ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
+    ShapeDashAlongX:Boolean;
+    FilledShapeTools:array[5..6] of Boolean;
+    ShapeFilled:Boolean; ShapeFillColor:Byte;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
     PendingCommand:Byte; ConfirmDiscard:Boolean;
@@ -68,9 +71,6 @@ var OpenMenu:Integer;
 procedure PaintChanges; forward;
 procedure StartFileDialog(Saving:Boolean); forward;
 procedure Title; forward;
-{$ifdef PP16_CLIP_ENABLED}
-procedure PreviewShapePixel(X,Y:Integer; C:Integer); forward;
-{$endif}
 
 function Num(N:Integer):String;
 var S:String[6];
@@ -102,6 +102,12 @@ end;
 
 function ToolUsesBrushSize:Boolean;
 begin ToolUsesBrushSize:=SelectedTool in [3,5,6,7] end;
+
+function ToolFilled(I:Integer):Boolean;
+begin
+  ToolFilled:=False;
+  if I in [5,6] then ToolFilled:=FilledShapeTools[I];
+end;
 
 function ToolIcon(I:Integer):Integer;
 begin
@@ -160,7 +166,8 @@ begin
     SmallText(7,64,'SELECT:'+Num(SelectionW)+'X'+Num(SelectionH),15)
   else
   {$endif}
-    SmallText(7,64,ToolNames[SelectedTool],15);
+    if ToolFilled(SelectedTool) then SmallText(7,64,'FILLED '+ToolNames[SelectedTool],15)
+    else SmallText(7,64,ToolNames[SelectedTool],15);
   FillBox(0,70,78,79,0);
   Button(2,70,9,9,False); Button(68,70,9,9,False);
   if ToolUsesBrushSize then
@@ -789,6 +796,7 @@ procedure InitUI;
 begin LoadToolAtlas; InitView; InitPaint; GradientArm:=0;
   ForeColor:=15; BackColor:=0;
   BrushSize:=1; StrokeSize:=1;
+  FilledShapeTools[5]:=False; FilledShapeTools[6]:=False; ShapeFilled:=False;
   StatusValid:=False; ShiftHeld:=False; CtrlHeld:=False;
   CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
@@ -1075,17 +1083,14 @@ begin
     end;
   end;
   {$endif}
-  if Button<>1 then Exit;
-  if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
-  begin SwapColors; Exit end;
-  {$ifdef PP16_CLIP_ENABLED}
-  if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
-  begin BeginPaste; Exit end;
-  {$endif}
-  if (X>=2) and (X<78) and (Y>=18) and (Y<56) then
+  if (Button in [1,2]) and (X>=2) and (X<78) and (Y>=18) and (Y<56) then
   begin
     if ((X-2) mod 19>=18) or ((Y-18) mod 19>=18) then Exit;
     I:=((Y-18) div 19)*4+(X-2) div 19;
+    if Button=2 then begin
+      if not (I in [5,6]) then Exit;
+      FilledShapeTools[I]:=not FilledShapeTools[I];
+    end;
     if I=1 then
     begin
       {$ifdef PP16_CLIP_ENABLED}if Button=1 then BeginPaste;{$endif}
@@ -1099,6 +1104,13 @@ begin
     {$endif}
     SelectedTool:=I; Tools; Exit;
   end;
+  if Button<>1 then Exit;
+  if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
+  begin SwapColors; Exit end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
+  begin BeginPaste; Exit end;
+  {$endif}
   if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,3,I) then
   begin SetZoom(2 shl I); RedrawView end;
 end;
@@ -1172,43 +1184,59 @@ begin
 end;
 
 procedure PreviewShapePixel(X,Y:Integer; C:Integer);
-var SX,SY,J:Integer;
+var DX,DY,P:Integer;
 begin
-  {The live outline is a canvas-only overlay. It never enters the document or
-   the 1:1 image preview, so release remains the one commit point.}
-  if (X<PanX) or (X>=PanX+VisibleCells) or
-     (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
-  if C<0 then C:=DocPixel(X,Y) else C:=PaintColor(X,Y,C);
-  SX:=CanvasX+(X-PanX)*Zoom;
-  SY:=CanvasY+(Y-PanY)*Zoom;
-  FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
-  if GridVisible and (Zoom>=2) then
-  begin
-    HSpan(SX,SX+Zoom-1,SY+Zoom-1,8);
-    for J:=SY to SY+Zoom-2 do PutPixel(SX+Zoom-1,J,8);
+  {Positioning guides are one screen pixel wide, regardless of brush size.
+   Restore only their screen pixels, including any grid they covered.}
+  if not IsCanvas(X,Y) then Exit;
+  if C<0 then begin
+    C:=8;
+    if ScreenToDoc(X,Y,DX,DY) then begin
+      C:=DocPixel(DX,DY);
+      if GridVisible and
+         (((X-CanvasX) mod Zoom=Zoom-1) or
+          ((Y-CanvasY) mod Zoom=Zoom-1)) then C:=8;
+    end;
+  end else begin
+    P:=X+Y;
+    {Use distance along a line's major axis so diagonals stay dashed too.}
+    if ShapeTool=7 then
+      if ShapeDashAlongX then P:=X else P:=Y;
+    if Odd(P) then C:=7 else C:=8;
   end;
-end;
-
-procedure PreviewShapeStamp(X,Y:Integer; C:Integer);
-begin
-  RasterStamp(X,Y,C,StrokeSize,PreviewShapePixel);
+  PutPixel(X,Y,C);
 end;
 
 procedure DrawShapeOutline(X,Y:Integer; C:Integer);
+var X1,Y1,Offset:Integer;
 begin
+  X1:=StrokeX; Y1:=StrokeY;
+  {Use the same constrained square endpoint as the committed rasterizer.}
+  if ShapeTool=6 then SquareEndpoint(X1,Y1,X,Y);
+  ShapeDashAlongX:=Abs(X-X1)>=Abs(Y-Y1);
+  Offset:=(Zoom-1) div 2;
+  X1:=CanvasX+(X1-PanX)*Zoom+Offset;
+  Y1:=CanvasY+(Y1-PanY)*Zoom+Offset;
+  X:=CanvasX+(X-PanX)*Zoom+Offset;
+  Y:=CanvasY+(Y-PanY)*Zoom+Offset;
   case ShapeTool of
-    5:RasterCircle(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
-    6:RasterSquare(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
-    7:RasterLine(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
+    5:RasterCircle(X1,Y1,X,Y,C,PreviewShapePixel);
+    6:begin
+        RasterLine(X1,Y1,X,Y1,C,PreviewShapePixel);
+        RasterLine(X,Y1,X,Y,C,PreviewShapePixel);
+        RasterLine(X,Y,X1,Y,C,PreviewShapePixel);
+        RasterLine(X1,Y,X1,Y1,C,PreviewShapePixel);
+      end;
+    7:RasterLine(X1,Y1,X,Y,C,PreviewShapePixel);
   end;
 end;
 
 procedure ShowShapePreview;
 begin
   if not ShapeValid then Exit;
-  {Restore only the cells of the prior temporary outline, including grid
-   borders, then paint the new outline. This avoids a full 128x128 rebuild
-   for every pointer movement.}
+  if ShapePreviewVisible and (ShapeX=ShapePreviewX) and
+     (ShapeY=ShapePreviewY) then Exit;
+  {Restore the previous guide before drawing its new position.}
   if ShapePreviewVisible then
     DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
   DrawShapeOutline(ShapeX,ShapeY,StrokeColor);
@@ -1217,13 +1245,20 @@ end;
 
 procedure EndGesture(Buttons:Byte);
 begin
-  if Gesture=4 then
+  if Gesture=4 then begin
+    {The final paint may leave some guide pixels unchanged. Erase it first.}
+    if ShapePreviewVisible then DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
     if ShapeValid then
       case ShapeTool of
-        5:DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
-        6:DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        5:if ShapeFilled then
+            DocFilledCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,ShapeFillColor,StrokeSize)
+          else DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        6:if ShapeFilled then
+            DocFilledSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,ShapeFillColor,StrokeSize)
+          else DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
         7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
       end;
+  end;
   if Gesture in [1,4] then DocCommitAction;
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
   PointerBlocked:=Buttons<>0;
@@ -1341,6 +1376,7 @@ begin
     else if SelectedTool in [5,6,7] then
     begin
       Gesture:=4; ShapeTool:=SelectedTool; StrokeColor:=ForeColor;
+      ShapeFilled:=ToolFilled(SelectedTool); ShapeFillColor:=BackColor;
       StrokeSize:=BrushSize;
       StrokeX:=DX; StrokeY:=DY; ShapeX:=DX; ShapeY:=DY; ShapeValid:=True;
       ShapePreviewVisible:=False;
@@ -1645,6 +1681,21 @@ var F:Word; S:TMouseState; I,X,Y,Z,A,B:Integer; C:Byte; Before:DWord;
     FillChar(S,SizeOf(S),0); SelectedTool:=3; ForeColor:=15; BackColor:=0;
   end;
 
+  procedure DumpGuide(const Name:String);
+  var Output:File; Row:TRow; Y:Integer; N:Word;
+  begin
+    {$I-} Assign(Output,Name); Rewrite(Output,1);
+    if IOResult<>0 then begin Check(False,'open guide review frame'); Exit end;
+    for Y:=0 to 199 do begin
+      ReadVideoBytes(0,Y,160,Row); BlockWrite(Output,Row,160,N);
+      if (IOResult<>0) or (N<>160) then begin Check(False,'write guide review frame'); Break end;
+    end;
+    Close(Output); Check(IOResult=0,'close guide review frame'); {$I+}
+  end;
+
+  {$I ../tests/SHAPETEST.INC}
+  {$I ../tests/FILLEDSHAPE.INC}
+
 begin
   F:=0; ResetTest;
   Check(BrushSize=1,'default brush size');
@@ -1699,12 +1750,14 @@ begin
   AtDoc(63,0,1); AtDoc(0,63,0);
   for I:=0 to 63 do
     Check((DocPixel(I,I)=15) and (DocPixel(63-I,I)=15),'fast diagonal continuity');
-  ResetTest; BrushSize:=3; SelectedTool:=7;
+  ResetTest; DrawUI; BrushSize:=3; SelectedTool:=7;
   AtDoc(10,10,1); AtDoc(15,10,1);
   Check((DocChecksum=0) and
         (GetPixel(CanvasX+(15-PanX)*Zoom,
-                  CanvasY+(9-PanY)*Zoom)=15),
-        'thick line preview is canvas-only');
+                  CanvasY+(10-PanY)*Zoom) in [7,8]) and
+        (GetPixel(CanvasX+(15-PanX)*Zoom,
+                  CanvasY+(9-PanY)*Zoom)=0),
+        'thick line uses a thin gray guide');
   AtDoc(15,10,0);
   Check((DocPixel(9,9)=15) and (DocPixel(16,11)=15) and
         (DocPixel(12,10)=15),'three-pixel line outline');
@@ -1718,7 +1771,7 @@ begin
         'three-pixel circle outline');
   ResetTest;
   SelectedTool:=7; AtDoc(2,2,1); AtDoc(8,5,1);
-  Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=15) and
+  Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10) in [7,8]) and
         (GetPixel(ImagePreviewX+8,ImagePreviewY+5)=0),'shape preview is canvas-only before release');
   KeyInput(27,1,1);
   Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=0),
@@ -1743,6 +1796,8 @@ begin
   Check((DocChecksum=Before) and DocDirty and DocCanUndo,'escape cancels pending shape');
   Before:=DocChecksum; AtDoc(20,20,2); AtDoc(21,21,0);
   Check((ForeColor=0) and (DocChecksum=Before),'right drag samples without drawing');
+  CheckShapeGuides;
+  CheckFilledShapes;
   ResetTest;
   AtDoc(2,10,1); AtDoc(5,10,1); Feed(80,49,1); AtDoc(20,10,1); AtDoc(23,10,0);
   Check((DocPixel(5,10)=15) and (DocPixel(20,10)=15),'re-entry resumes stroke');

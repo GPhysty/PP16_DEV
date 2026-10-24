@@ -4,6 +4,7 @@ interface
 type TPlotProc=procedure(X,Y,C:Integer);
 procedure RasterStamp(X,Y,C,Size:Integer; Plot:TPlotProc);
 procedure RasterLine(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
+procedure SquareEndpoint(X1,Y1:Integer; var X2,Y2:Integer);
 procedure RasterSquare(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 procedure RasterCircle(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
 function EllipseInset(Y,W,H:Integer):Integer;
@@ -50,7 +51,7 @@ begin
   until False;
 end;
 
-procedure RasterSquare(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
+procedure SquareEndpoint(X1,Y1:Integer; var X2,Y2:Integer);
 var Side,SX,SY,Limit:Integer;
 begin
   Side:=Abs(X2-X1); if Abs(Y2-Y1)>Side then Side:=Abs(Y2-Y1);
@@ -61,6 +62,11 @@ begin
   if SY>0 then Limit:=63-Y1 else Limit:=Y1;
   if Side>Limit then Side:=Limit;
   X2:=X1+SX*Side; Y2:=Y1+SY*Side;
+end;
+
+procedure RasterSquare(X1,Y1,X2,Y2,C:Integer; Plot:TPlotProc);
+begin
+  SquareEndpoint(X1,Y1,X2,Y2);
   RasterLine(X1,Y1,X2,Y1,C,Plot); RasterLine(X2,Y1,X2,Y2,C,Plot);
   RasterLine(X2,Y2,X1,Y2,C,Plot); RasterLine(X1,Y2,X1,Y1,C,Plot);
 end;

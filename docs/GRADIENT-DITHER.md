@@ -17,7 +17,8 @@ swatch displays the active pattern and percentage. Assigning an endpoint also
 activates gradient paint using the retained percentage.
 
 Brush, Line, Circle, Square, Bucket Fill and Clear to Colour all use the mix.
-Brush sizes 1-5 and shape previews use the same image-anchored pattern. An
+Brush sizes 1-5 use the same image-anchored pattern. Shape tools show a thin
+dashed gray positioning guide; their pattern and thickness appear on release. An
 ordinary left palette click or canvas eyedropper selects solid paint again,
 while retaining both endpoints and the step. Right palette clicks set the
 solid background. Tab (or clicking the background swatch) swaps solid colours;
@@ -39,8 +40,8 @@ tile's local coverage can differ. Equal endpoints and 0%/100% remain solid.
 
 The active pattern caches ten packed 32-byte rows, plus a 64-byte row-index
 lookup. Pixel resolution uses the lookup and nibble extraction without division
-in the painting loop. `DocSetPixel` stays literal; only paint paths and shape
-previews resolve the gradient token. This preserves the phase of pasted art.
+in the painting loop. `DocSetPixel` stays literal; paint paths resolve the
+gradient token. Positioning guides do not. This preserves the phase of pasted art.
 The UI ramp uses the same rank pattern for each of its eleven selectable steps.
 
 Bucket Fill uses a 512-byte visited bitmap, because some painted pixels can

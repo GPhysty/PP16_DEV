@@ -1,7 +1,7 @@
 function GradientChecks:Word;
 var F:Word; Assertions:DWord; S:TMouseState;
     A,B,K,X,Y,I,J,N,Z,Tool,Size:Integer; C:Byte;
-    Before:DWord; Row:TDocRow; PreviewPixels:array[0..63,0..63] of Byte;
+    Before:DWord; Row:TDocRow;
 
   procedure Check(OK:Boolean; const Name:String);
   begin
@@ -140,7 +140,7 @@ begin
     (DocChecksum=Before),'same-colour gradient fill is a no-op');
   {Exercise Brush and each shape via pointer input at every brush size,
    zoom and grid mode. A bright untouched background makes overwritten
-   black pixels visible, too. The entire live canvas must equal the commit.}
+   black pixels visible, too. Release must remove every temporary guide pixel.}
   for Tool:=3 to 7 do if Tool<>4 then
     for Size:=1 to 5 do
   begin
@@ -151,12 +151,15 @@ begin
     GridVisible:=Odd(Size); DrawUI;
     AtDoc(PanX+3,PanY+3,1); AtDoc(PanX+6,PanY+5,1);
     Check((Tool=3) or not DocDirty,'shape preview leaves document clean');
-    for Y:=0 to VisibleCells-1 do for X:=0 to VisibleCells-1 do
-      PreviewPixels[Y,X]:=GetPixel(CanvasX+X*Z,CanvasY+Y*Z);
     AtDoc(PanX+6,PanY+5,0); PaintChanges;
+    for Y:=0 to CanvasSize-1 do for X:=0 to CanvasSize-1 do
+    begin
+      C:=DocPixel(PanX+X div Z,PanY+Y div Z);
+      if GridVisible and ((X mod Z=Z-1) or (Y mod Z=Z-1)) then C:=8;
+      Check(GetPixel(CanvasX+X,CanvasY+Y)=C,'release renders paint and grid without guide remnants');
+    end;
     for Y:=0 to VisibleCells-1 do for X:=0 to VisibleCells-1 do
     begin
-      Check(GetPixel(CanvasX+X*Z,CanvasY+Y*Z)=PreviewPixels[Y,X],'preview pixels equal committed pixels');
       C:=DocPixel(PanX+X,PanY+Y);
       if C<>8 then Check(C=PaintColor(PanX+X,PanY+Y,GradientPaint),'stroke pattern stays image anchored');
     end;

@@ -307,9 +307,15 @@ and keeps the background colour unchanged.
 Brush paints square marks at the selected size.  Bucket Fill replaces the
 connected area under the pointer with the foreground colour.  Circle begins
 at its centre, Square begins at its first corner, and Line begins at its first
-endpoint.  These shape tools show an outline while dragging; releasing the
-left button commits the shape as one action.  Escape cancels an unfinished
-stroke or shape.
+endpoint.  These shape tools show a thin dashed grey guide while dragging.
+Releasing the left button applies the colour, dither pattern and thickness as
+one action.  Escape cancels an unfinished stroke or shape.
+
+Right-click the Circle or Square tool button to toggle filled mode.  The label
+shows FILLED CIRCLE or FILLED SQUARE.  Left-click selects the tool while keeping
+its mode.  The primary paint draws the border at the selected size; the solid
+secondary colour fills the interior, including black.  Each tool remembers its
+mode for the session.  Both colours, size and mode are captured at mouse press.
 
 To use gradient paint, click the left endpoint box below the palette, then
 left-click its palette colour.  Repeat with the right endpoint box.  Click
@@ -325,8 +331,9 @@ different local ratio.  Endpoint colours and the selected step are session
 controls; saved images contain the resulting pixels.
 
 Brush, Line, Circle, Square, Bucket Fill and Clear to Colour all use the mix.
-Shape previews match the committed pattern.  An ordinary left palette click
-or canvas eyedropper selects solid paint again, retaining the endpoint settings.
+Shape guides show position; the mix appears on release.  An ordinary left
+palette click or canvas eyedropper selects solid paint again, retaining the
+endpoint settings.
 Right palette clicks still set the solid background.  Copy, Cut, Paste, Open
 and Save preserve literal image pixels rather than applying the active mix.
 
