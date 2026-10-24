@@ -18,6 +18,7 @@ procedure PerfCase(N:Integer);
 {$ifdef PP16_FILEUI_TEST}function FileUIChecks:Word;{$endif}
 {$ifdef PP16_CLIP_TEST}function ClipChecks:Word;{$endif}
 {$ifdef PP16_GRADIENT_TEST}function GradientChecks:Word;{$endif}
+{$ifdef PP16_IMPORT_TEST}function ImportChecks:Word;{$endif}
 procedure PointerFeedback(X,Y:Integer);
 implementation
 uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster,TPaint
@@ -454,9 +455,9 @@ end;
 
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
       PopupW:array[0..5] of Integer=(168,152,104,200,176,112);
-      MenuRows:array[0..5] of Integer=(5,7,1,2,0,2);
+      MenuRows:array[0..5] of Integer=(6,7,1,2,0,2);
       Labels:array[0..5,0..7] of String[20]=(
-       ('New','Open...','Save','Save As...','Exit','','',''),
+       ('New','Open...','Save','Save As...','Import...','Exit','',''),
        ('Undo','','Cut','Copy','Paste','','Paste Behind',''),
        ('Grid On','','','','','','',''),
        ('Clear','Clear to Colour','','','','','',''),
@@ -473,7 +474,7 @@ end;
 
 function Enabled(M,I:Integer):Boolean;
 begin
-  Enabled:=((M=0) and (I in [0,1,2,3,4])) or
+  Enabled:=((M=0) and (I in [0..5])) or
 {$ifdef PP16_CLIP_ENABLED}
            ((M=1) and (((I=0) and DocCanUndo) or
                        ((I in [2,3]) and SelectionValid) or
@@ -974,7 +975,9 @@ begin
             begin
               case I of
                 0:RequestCommand(1); 1:RequestCommand(3);
-                2:SaveCurrent; 3:StartFileDialog(True); 4:RequestCommand(2);
+                2:SaveCurrent; 3:StartFileDialog(True);
+                4:begin ClosePopup; BeginImportDialog; SetPopup(9) end;
+                5:RequestCommand(2);
               end;
               Exit;
             end
@@ -2096,7 +2099,7 @@ begin
   KeyInput(13,28,0);
   Check((OpenMenu=-1) and (DocChecksum=Before) and DocCanUndo,
         'default Enter cancels New and preserves undo');
-  Choose(0,4); KeyInput(27,1,0);
+  Choose(0,5); KeyInput(27,1,0);
   Check(not ExitRequested and (DocChecksum=Before),'Escape cancels dirty File Exit');
   KeyInput(27,1,0); HandleClick(180,115,1);
   Check(not ExitRequested and (OpenMenu=-1),'mouse Cancel keeps working image');
@@ -2105,15 +2108,15 @@ begin
         'explicit discard creates clean blank and resets undo');
   InitUI; Choose(0,0);
   Check((DocChecksum=0) and (OpenMenu=-1),'clean New needs no discard prompt');
-  Choose(0,4); Check(ExitRequested,'clean File Exit works');
+  Choose(0,5); Check(ExitRequested,'clean File Exit works');
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,0);
   Feed(80,115,1); AtDoc(30,30,1); AtDoc(30,30,0);
   Check((DocChecksum=0) and not DocDirty,'discard click cannot leak into new canvas');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,5);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check(ExitRequested,'explicit keyboard discard exits');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,5);
   HandleClick(80,115,1); Check(ExitRequested,'explicit mouse discard exits');
 
   {Leave a realistic dirty-document prompt for the framebuffer inspection.}
@@ -2125,4 +2128,5 @@ begin
 end;
 {$endif}
 {$ifdef PP16_GRADIENT_TEST}{$I ../tests/GRADTEST.INC}{$endif}
+{$ifdef PP16_IMPORT_TEST}{$I ../tests/IMPTEST.INC}{$endif}
 end.

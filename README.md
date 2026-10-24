@@ -106,6 +106,16 @@ See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
 - **File > New**: start a blank black image. **File > Exit** exits.
   If there are unsaved changes, choose **Cancel** or **Discard**. Cancel is the
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
+- **File > Import**: convert a prepared indexed `.PCX` or PIXELplus 256 `.PUT`
+  image to the fixed Tandy palette using exact-color-preserving Floyd-Steinberg.
+  PCX must be version 5, 8-bit, single-plane RLE with its 256-entry palette.
+  PUT offers an image-number selector and uses its associated `.APF` or a
+  supplied `.PAL`; a missing palette is never silently substituted. Selected
+  images must be at most 64x64. Smaller images go at the top left with black
+  padding. Import is one undoable action and becomes an unnamed, unsaved image;
+  Save asks for a native `.P16` filename. Escape cancels conversion. See the
+  [import guide and validation record](docs/IMPORT.md) for palette locations,
+  limits and conversion details.
 - **File > Save**: save the current image; an unnamed image gets a filename
   dialog. **File > Save As** chooses a new filename.
 - **Save As `NAME.CLP`**: save the current clipboard, including its dimensions
@@ -145,6 +155,9 @@ The executable and atlas are in `out/medium/`. The upgraded editor exceeds
 Small's code limit; use the frozen 1.0 distribution for that build.
 Pass `-GradientOnly -Cycles 3000` to the check script for focused gradient
 checks; the normal full run includes them too.
+Use `-ImportOnly -Cycles 3000` for the importer checks, also included in the
+full run. These independently compare converted pixels and exercise malformed
+files, palette lookup, cancellation, undo, Save and the File-menu flow.
 
 With **PP16_DEV opened as the VS Code workspace**, Ctrl+Shift+B builds PP16.
 The `PP16: Build and run editor` task opens a visible emulator.

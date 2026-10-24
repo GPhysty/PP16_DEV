@@ -64,6 +64,30 @@ image-wide special effects.  Those omissions are intentional: PP16 focuses
 on consistent hand-edited sprite frames.
 
 
+Importing prepared images (version 1.1)
+---------------------------------------
+Use File > Import and choose an indexed .PCX or PIXELplus 256 .PUT file in
+the current directory. PCX must be version 5, 8-bit, one-plane RLE with its
+256-entry RGB palette. Other PCX profiles and true-colour files are rejected.
+The selected image must be at most 64x64. Smaller images go at the top left
+with black padding. There are no resize or crop controls.
+
+For PUT, choose an image using the < / > buttons or Up/Down. Tab changes
+fields. Enter accepts and Escape cancels. The palette field starts with the
+associated BASENAME.APF; you can type a different .APF or .PAL name. PP16
+searches the current directory, PALETTES, then ..\PALETTES. A missing palette
+must be supplied explicitly. Palettes contain 256 four-byte VGA DAC entries.
+
+Conversion may take time on the target CPU. Escape cancels it. A successful
+import is unnamed and unsaved; Save asks for a .P16 destination. Ctrl+Z
+restores the previous pixels and dirty flag, while the image stays unnamed.
+A failed or cancelled import preserves the current image, filename, undo,
+clipboard and paint settings. Input and palette files are opened read-only.
+The conversion keeps exact Tandy colours, gray neutrality and literal pixels;
+it does not change your selected gradient paint. See docs/IMPORT.md for the
+full supported profile, limits and development validation.
+
+
 -------------------
  2 - PP16 Features
 -------------------
@@ -93,6 +117,10 @@ PP16 includes the following features:
 
  * Native .P16 image files and .CLP clipboard files, each checked fully before
    loading.  Saves are written, reopened and verified before replacement.
+
+ * File > Import converts prepared indexed PCX and PIXELplus 256 PUT images
+   into literal Tandy pixels using exact-colour-preserving Floyd-Steinberg.
+   Import is a single undoable action. See the import instructions below.
 
  * DOS 8.3 filename dialogs, recoverable overwrite handling and retained
    backups under the TRASH directory.

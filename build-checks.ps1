@@ -34,4 +34,10 @@ try {
     New-Item -ItemType Directory -Force -Path $gradientUnits | Out-Null
     & $compiler '-n' "@$config" "-FU$gradientUnits" "-FE$checks" '-dPP16_GRADIENT_TEST' '-dPP16_CLIP_ENABLED' '-oPPGRAD.EXE' 'tests/GRADRUN.PAS'
     if ($LASTEXITCODE -ne 0) { throw 'Gradient harness build failed' }
+    $importUnits = "$checks/IMPORT"
+    New-Item -ItemType Directory -Force -Path $importUnits | Out-Null
+    & $compiler '-n' "@$config" "-FU$importUnits" "-FE$checks" '-oPPIMPF.EXE' 'tests/IMPFILE.PAS'
+    if ($LASTEXITCODE -ne 0) { throw 'Import file harness build failed' }
+    & $compiler '-n' "@$config" "-FU$importUnits" "-FE$checks" '-dPP16_IMPORT_TEST' '-dPP16_CLIP_ENABLED' '-oPPIMPU.EXE' 'tests/IMPRUN.PAS'
+    if ($LASTEXITCODE -ne 0) { throw 'Import UI harness build failed' }
 } finally { Pop-Location }

@@ -17,6 +17,11 @@ elif len(sys.argv) > 3 and sys.argv[3] == 'file':
     assert pixels[36*320+50] == 9 and pixels[145*320+269] == 9
     assert pixels[56*320+104] == 15  # Filename starts selected.
     assert pixels[71*320+70] == 1  # Opaque file list.
+elif len(sys.argv) > 3 and sys.argv[3] == 'import':
+    assert pixels[36*320+50] == 9 and pixels[145*320+269] == 9
+    assert pixels[71*320+71] == 14  # PUT image selector has keyboard focus.
+    assert pixels[72*320+198] == 7 and pixels[72*320+232] == 7
+    assert pixels[112*320+257] == 1  # Settings remain inside the modal panel.
 elif len(sys.argv) > 3 and sys.argv[3] == 'utility':
     assert pixels[62*320] == 15 and pixels[70*320] == 1
 elif len(sys.argv) > 3 and sys.argv[3] == 'menu':

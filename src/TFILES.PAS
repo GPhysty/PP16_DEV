@@ -1,7 +1,7 @@
 unit TFiles;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
-uses TDoc;
+uses TDoc,TImport;
 type TFileName=String[12];
 var CurrentFile:TFileName;
     {Type of the latest normalized I/O request; CurrentFile remains the document.}
@@ -9,9 +9,13 @@ var CurrentFile:TFileName;
     FileError:String[48]; RecoveryPath:String[64];
 {$ifdef PP16_FILE_TEST}var FileFault:Byte;{$endif}
 function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+function NormalizeImportName(const Input:String; var Name:TFileName):Boolean;
+function NormalizePaletteName(const Input:String; var Name:TFileName):Boolean;
 function ClipName(const Name:String):Boolean;
 function Exists(const Name:String):Boolean;
 function LoadImage(const Name:TFileName):Boolean;
+function ImportImage(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Cancel:TImportCancel):Boolean;
 function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
 {Both entry points dispatch by extension. CLP never changes document state.}
 implementation
@@ -29,10 +33,15 @@ begin
   if Code<>0 then begin Str(Code,S); FileError:=Message+' (DOS '+S+')' end;
 end;
 
-function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+function NormalizeKind(const Input:String; var Name:TFileName; Kind:Byte):Boolean;
 var S,B:String[12]; I,P:Integer;
 begin
-  NormalizeName:=False; FileError:='USE 8.3 NAME WITH .P16 OR .CLP';
+  NormalizeKind:=False;
+  case Kind of
+    0:FileError:='USE 8.3 NAME WITH .P16 OR .CLP';
+    1:FileError:='USE 8.3 NAME WITH .PCX OR .PUT';
+    2:FileError:='USE 8.3 NAME WITH .APF OR .PAL';
+  end;
   if (Length(Input)=0) or (Length(Input)>12) then Exit;
   S:=Input; P:=0;
   for I:=1 to Length(S) do begin
@@ -40,15 +49,29 @@ begin
     if S[I]='.' then begin if P<>0 then Exit; P:=I end
     else if not (S[I] in ['A'..'Z','0'..'9','_','-']) then Exit;
   end;
-  if P=0 then begin if Length(S)>8 then Exit; S:=S+'.P16'; P:=Length(S)-3 end;
+  if P=0 then begin
+    if (Length(S)>8) or (Kind=2) then Exit;
+    if Kind=0 then S:=S+'.P16' else S:=S+'.PCX'; P:=Length(S)-3;
+  end;
   if (P<2) or (P>9) or (Length(S)<>P+3) then Exit;
-  if (Copy(S,P,4)<>'.P16') and not ClipName(S) then Exit;
+  case Kind of
+    0:if (Copy(S,P,4)<>'.P16') and not ClipName(S) then Exit;
+    1:if (Copy(S,P,4)<>'.PCX') and (Copy(S,P,4)<>'.PUT') then Exit;
+    2:if (Copy(S,P,4)<>'.APF') and (Copy(S,P,4)<>'.PAL') then Exit;
+  end;
   B:=Copy(S,1,P-1);
   if (B='CON') or (B='PRN') or (B='AUX') or (B='NUL') then Exit;
   if (Length(B)=4) and (B[4] in ['1'..'9']) and
      ((Copy(B,1,3)='COM') or (Copy(B,1,3)='LPT')) then Exit;
-  Name:=S; FileError:=''; NormalizeName:=True;
+  Name:=S; FileError:=''; NormalizeKind:=True;
 end;
+
+function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizeName:=NormalizeKind(Input,Name,0) end;
+function NormalizeImportName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizeImportName:=NormalizeKind(Input,Name,1) end;
+function NormalizePaletteName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizePaletteName:=NormalizeKind(Input,Name,2) end;
 
 function Exists(const Name:String):Boolean;
 var S:SearchRec;
@@ -117,6 +140,19 @@ begin
   if FileIsClip then ClipboardImport(Stage,StageHeader[8],StageHeader[10],StageHeader[12]<>0)
   else begin DocReplace(Stage); CurrentFile:=Valid end;
   LoadImage:=True;
+end;
+
+function ImportImage(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Cancel:TImportCancel):Boolean;
+var Valid:TFileName;
+begin
+  ImportImage:=False; FileError:='';
+  if not NormalizeImportName(Name,Valid) then Exit;
+  if not ReadImported(Valid,PaletteName,ImageNo,Stage,Cancel) then begin
+    FileError:=ImportError; Exit;
+  end;
+  if not DocImport(Stage) then begin FileError:='FINISH CURRENT DRAWING ACTION FIRST'; Exit end;
+  CurrentFile:=''; FileIsClip:=False; RecoveryPath:=''; ImportImage:=True;
 end;
 
 function Directory(const Name:String):Boolean;

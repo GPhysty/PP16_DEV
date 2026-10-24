@@ -396,3 +396,30 @@ memory restoration passed at 3,000 cycles/ms in
 initialized data is 4,564 bytes; startup near heap is 6,650 bytes. See
 [gradient behavior and evidence](GRADIENT-DITHER.md). Physical HX validation
 remains outstanding.
+
+## PP16 1.1 indexed import checkpoint - 2026-10-23
+
+File > Import now reads version-5, 8-bit single-plane RLE PCX and PP256 PUT
+images with associated APF or explicit PAL palettes. PUT has an image-number
+selector, validates integer record alignment and supports sibling PALETTES
+lookup. Selected images must fit 64x64; smaller images are placed at the top
+left with black padding. The selected exact-color-preserving, neutral-aware
+fixed-point Floyd-Steinberg conversion emits literal packed Tandy indexes.
+The existing file stage is committed by TDOC.DocImport as one undoable action;
+success is unnamed/unsaved, while cancellation/failure preserves prior state.
+The 2,612-byte temporary converter context uses the existing stack instead of
+permanent near data. No compiler/runtime, DOSBox setting or 1.0 package changed.
+
+Focused checks passed in `obj/pp16-medium-20261023-141749-78ecee`. The final
+Medium build and full regression passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-142217-bfda07`: 17 scalar-oracle conversions, 323
+import assertions plus sibling-palette/UI checks, 838,210 gradient assertions,
+39,244 ellipse checks, native/clipboard files and recovery, production
+Save/Open, and exact DOS memory restoration. Import heap does not grow; stack
+watermarks retain over 3 KiB untouched on tested file and UI paths.
+
+Production linked code is 82,653 bytes; initialized data is 6,358 bytes;
+DGROUP including stack is 61,344 bytes; recorded startup near heap is 4,198
+bytes. Bird imports take about 6.9 seconds in this emulator's 3,000-cycle
+configuration. See [the import guide and resource record](IMPORT.md).
+User visual acceptance and physical HX verification remain separate.

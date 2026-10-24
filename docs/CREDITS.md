@@ -40,3 +40,13 @@ GRAFIX.DOC states:
 > changes are made.
 
 The original source and distribution notice remain with the references.
+
+## Indexed import
+
+The PCX reader follows the ZSoft technical format reference. The PUT reader
+uses PP256's documented BASIC record and palette layout, verified against
+the local samples. The fixed-point Floyd-Steinberg implementation is new PP16
+code written from the algorithm; no third-party dithering implementation was
+copied. See [format, algorithm and validation references](IMPORT.md).
+PP256 sample artwork is used only in disposable validation drives and is not
+embedded in the editor or added to the installation package.

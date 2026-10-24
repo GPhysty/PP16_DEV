@@ -9,6 +9,7 @@ var DocDirty:Boolean;
 procedure DocCopy(var Data:TDocPixels);
 procedure DocReadRow(Y:Integer; var Row:TDocRow);
 procedure DocReplace(const Data:TDocPixels);
+function DocImport(const Data:TDocPixels):Boolean;
 procedure DocSaved;
 function DocCanUndo:Boolean;
 procedure DocBeginAction;
@@ -69,6 +70,16 @@ end;
 
 procedure DocReplace(const Data:TDocPixels);
 begin Move(Data,Pixels,DocBytes); ResetDirty; MarkAll end;
+
+function DocImport(const Data:TDocPixels):Boolean;
+begin
+  DocImport:=False;
+  if ActionActive then Exit;
+  {Only a completely decoded, converted and closed input reaches this point.
+   Imports are a new unnamed, unsaved image even when their pixels match.}
+  Move(Pixels,UndoPixels,DocBytes); UndoDirty:=DocDirty; UndoValid:=True;
+  Move(Data,Pixels,DocBytes); DocDirty:=True; MarkAll; DocImport:=True;
+end;
 
 procedure DocSaved;
 begin
