@@ -78,25 +78,41 @@ begin IsPCX:=Copy(Name,Length(Name)-3,4)='.PCX' end;
 function GetWord(L,H:Byte):Word;
 begin GetWord:=Word(L) or (Word(H) shl 8) end;
 
-function PCXHeader(var W,H,Stride:Word; var PalettePos:LongInt):Boolean;
-var Header:array[0..127] of Byte; I:Integer; X1,Y1,X2,Y2:Word; B:Byte;
+function PCXHeader(var W,H,Stride:Word; var PixelEnd:LongInt; var Bits:Byte):Boolean;
+var Header:array[0..127] of Byte; I:Integer; X1,Y1,X2,Y2,RowBytes:Word;
+    B:Byte; S:String[3];
 begin
   PCXHeader:=False;
-  if InputSize<898 then begin Error('PCX HEADER / PALETTE IS TRUNCATED'); Exit end;
+  if InputSize<128 then begin Error('PCX HEADER IS TRUNCATED'); Exit end;
   if not SeekInput(0,InputSize) then Exit;
   for I:=0 to 127 do if not ReadByte(Header[I]) then Exit;
-  if (Header[0]<>10) or (Header[1]<>5) or (Header[2]<>1) or
-     (Header[3]<>8) or (Header[65]<>1) then begin
-    Error('NEED VERSION 5, 8-BIT 1-PLANE RLE PCX'); Exit;
+  if Header[0]<>10 then begin Error('NOT A PCX FILE'); Exit end;
+  if Header[1]<>5 then begin
+    Str(Header[1],S); Error('PCX VERSION '+S+' IS UNSUPPORTED (NEED 5)'); Exit;
+  end;
+  if Header[2]<>1 then begin Error('PCX MUST USE RLE COMPRESSION'); Exit end;
+  if Header[65]<>1 then begin
+    Str(Header[65],S); Error('PCX HAS '+S+' PLANES; NEED ONE'); Exit;
+  end;
+  Bits:=Header[3];
+  if not (Bits in [4,8]) then begin
+    Str(Bits,S); Error('PCX USES '+S+' BITS; NEED 4 OR 8'); Exit;
   end;
   X1:=GetWord(Header[4],Header[5]); Y1:=GetWord(Header[6],Header[7]);
   X2:=GetWord(Header[8],Header[9]); Y2:=GetWord(Header[10],Header[11]);
   if (X2<X1) or (Y2<Y1) then begin Error('INVALID PCX DIMENSIONS'); Exit end;
   if (X2-X1>=64) or (Y2-Y1>=64) then begin Error('IMAGE MUST BE AT MOST 64 X 64'); Exit end;
   W:=X2-X1+1; H:=Y2-Y1+1; Stride:=GetWord(Header[66],Header[67]);
-  if (Stride<W) or Odd(Stride) then begin Error('INVALID PCX BYTES PER LINE'); Exit end;
-  PalettePos:=InputSize-769;
-  if not SeekInput(PalettePos,InputSize) then Exit;
+  RowBytes:=W; if Bits=4 then RowBytes:=(W+1) shr 1;
+  if (Stride<RowBytes) or Odd(Stride) then begin Error('INVALID PCX BYTES PER LINE'); Exit end;
+  PixelEnd:=InputSize;
+  if Bits=4 then begin
+    {The caller reads the sixteen RGB entries embedded in the PCX header.}
+    PCXHeader:=SeekInput(16,64); Exit;
+  end;
+  if InputSize<898 then begin Error('PCX 256-COLOR PALETTE IS TRUNCATED'); Exit end;
+  PixelEnd:=InputSize-769;
+  if not SeekInput(PixelEnd,InputSize) then Exit;
   if not ReadByte(B) then Exit;
   if B<>12 then begin Error('MISSING PCX 256-COLOR PALETTE'); Exit end;
   PCXHeader:=True;
@@ -137,12 +153,12 @@ begin
 end;
 
 function InspectImport(const Name:String; Selected:Word; var Count,W,H:Word):Boolean;
-var OK:Boolean; Stride:Word; P:LongInt;
+var OK:Boolean; Stride:Word; P:LongInt; Bits:Byte;
 begin
   InspectImport:=False; ImportError:=''; Count:=0; W:=0; H:=0;
   if not OpenInput(Name) then Exit;
   if IsPCX(Name) then begin
-    OK:=PCXHeader(W,H,Stride,P); Count:=1;
+    OK:=PCXHeader(W,H,Stride,P,Bits); Count:=1;
     if OK and (Selected<>1) then begin Error('PCX CONTAINS ONE IMAGE'); OK:=False end;
   end else OK:=PUTIndex(Selected,Count,W,H,P);
   InspectImport:=CloseInput(OK);
@@ -189,27 +205,32 @@ begin
   PUTPalette:=CloseInput(OK);
 end;
 
-function ConvertInput(var State:TConvertState; PCX:Boolean; W,H,Stride:Word; Start,EndPos:LongInt;
+function ConvertInput(var State:TConvertState; PCXBits:Byte; W,H,Stride:Word; Start,EndPos:LongInt;
                       var Pixels:TDocPixels; Cancel:TImportCancel):Boolean;
-var Row:TIndexRow; PackedRow:TPackedRow; X,Y,I,Run,SincePoll:Word; B,V:Byte;
+var Row:TIndexRow; PackedRow:TPackedRow; X,Y,I,J,RowBytes,Run,SincePoll:Word; B,V:Byte;
 begin
   ConvertInput:=False;
   if (W<1) or (W>64) or (H<1) or (H>64) then begin Error('IMAGE MUST BE AT MOST 64 X 64'); Exit end;
   if Cancelled(Cancel) or not SeekInput(Start,EndPos) then Exit;
   FillChar(Pixels,SizeOf(Pixels),0); PreparePalette(State); BeginImage(State,W);
+  RowBytes:=W; if PCXBits=4 then RowBytes:=(W+1) shr 1;
   for Y:=0 to H-1 do begin
     FillChar(Row,SizeOf(Row),0); X:=0; SincePoll:=0;
     while X<Stride do begin
       if not ReadByte(B) then Exit;
       Run:=1; V:=B;
-      if PCX and ((B and $C0)=$C0) then begin
+      if (PCXBits<>0) and ((B and $C0)=$C0) then begin
         Run:=B and $3F;
         if Run=0 then begin Error('INVALID ZERO-LENGTH PCX RUN'); Exit end;
         if not ReadByte(V) then Exit;
       end;
       if Run>Stride-X then begin Error('PCX RUN CROSSES SCANLINE'); Exit end;
       for I:=1 to Run do begin
-        if X<W then Row[X]:=V;
+        if X<RowBytes then
+          if PCXBits=4 then begin
+            J:=X shl 1; Row[J]:=V shr 4;
+            if J+1<W then Row[J+1]:=V and 15;
+          end else Row[X]:=V;
         Inc(X);
       end;
       Inc(SincePoll,Run);
@@ -226,7 +247,8 @@ end;
 
 function ReadImported(const Name,PaletteName:String; Selected:Word;
                       var Pixels:TDocPixels; Cancel:TImportCancel):Boolean;
-var PCX,OK:Boolean; Count,W,H,Stride:Word; Start,EndPos,PalettePos:LongInt; I,C:Integer;
+var PCX,OK:Boolean; Count,W,H,Stride:Word; Start,EndPos,PixelEnd:LongInt;
+    I,C,PaletteLast:Integer; Bits:Byte;
     State:TConvertState;
 begin
   ReadImported:=False; ImportError:=''; PCX:=IsPCX(Name);
@@ -236,17 +258,18 @@ begin
   if not OpenInput(Name) then Exit;
   OK:=False;
   if PCX then begin
-    if PCXHeader(W,H,Stride,PalettePos) and (Selected=1) then begin
-      OK:=True;
-      for I:=0 to 255 do begin
+    if PCXHeader(W,H,Stride,PixelEnd,Bits) and (Selected=1) then begin
+      OK:=True; FillChar(State.SourcePalette,SizeOf(State.SourcePalette),0);
+      PaletteLast:=255; if Bits=4 then PaletteLast:=15;
+      for I:=0 to PaletteLast do begin
         for C:=0 to 2 do if not ReadByte(State.SourcePalette[I,C]) then begin OK:=False; Break end;
         if not OK then Break;
       end;
-      if OK then OK:=ConvertInput(State,True,W,H,Stride,128,PalettePos,Pixels,Cancel);
+      if OK then OK:=ConvertInput(State,Bits,W,H,Stride,128,PixelEnd,Pixels,Cancel);
     end else if ImportError='' then Error('PCX CONTAINS ONE IMAGE');
   end else if PUTIndex(Selected,Count,W,H,Start) then begin
     EndPos:=Start+LongInt(DWord(W)*DWord(H));
-    OK:=ConvertInput(State,False,W,H,W,Start,EndPos,Pixels,Cancel);
+    OK:=ConvertInput(State,0,W,H,W,Start,EndPos,Pixels,Cancel);
   end;
   ReadImported:=CloseInput(OK);
 end;

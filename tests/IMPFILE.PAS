@@ -7,10 +7,11 @@ var Failures,Assertions:Word; Before,Expected,Actual:TDocPixels;
     Selected,Count,W,H:Word; I,J,Code:Integer; S:String[12];
     F:File; N,Attributes:Word; CancelAt,Polls:Integer; InitialHeap:LongInt;
     StartTick,EndTick:LongInt; Imported:Boolean;
-const BadPCX:array[0..13] of TFileName=
+const BadPCX:array[0..19] of TFileName=
  ('PCXVER.PCX','PCXBPP.PCX','PCXPLN.PCX','PCXENC.PCX','PCXWIDE.PCX','PCXHIGH.PCX',
   'PCXLINE.PCX','PCXXMIN.PCX','PCXZERO.PCX','PCXRUN.PCX','PCXTRUNC.PCX',
-  'PCXEXTRA.PCX','PCXPAL.PCX','PCXSHORT.PCX');
+  'PCXEXTRA.PCX','PCXPAL.PCX','PCXSHORT.PCX',
+  'P4LINE.PCX','P4ODD.PCX','P4ZERO.PCX','P4RUN.PCX','P4TRUNC.PCX','P4EXTRA.PCX');
       BadPUT:array[0..5] of TFileName=
  ('PUTSHORT.PUT','PUTEXTRA.PUT','PUTMAGIC.PUT','PUTBITS.PUT','PUTZERO.PUT','PUTPAD.PUT');
       BadPal:array[0..3] of TFileName=('BADDAC.PAL','BADFOUR.PAL','SHORT.PAL','NONE.PAL');
@@ -73,10 +74,18 @@ begin
     Check(not NormalizeImportName('..\A.PUT',Name),'import dialog uses current directory');
     Check(InspectImport('MULTI.PUT',2,Count,W,H) and (Count=2) and (W=5) and (H=3),'PUT odd record indexing');
     Check(InspectImport('MIXED.PUT',2,Count,W,H) and (Count=2) and (W=5),'PUT skips record larger than 32767 bytes');
+    Check(InspectImport('ODD4.PCX',1,Count,W,H) and (Count=1) and (W=7) and (H=3),
+          'packed 4-bit PCX inspection reads odd dimensions');
+    Check(not InspectImport('PCXBPP.PCX',1,Count,W,H) and (Pos('2 BITS',ImportError)>0),
+          'unsupported PCX depth reports its actual value');
+    Check(not InspectImport('PCXVER.PCX',1,Count,W,H) and (Pos('VERSION 3',ImportError)>0),
+          'unsupported PCX version reports its actual value');
+    Check(not InspectImport('PCXPLN.PCX',1,Count,W,H) and (Pos('3 PLANES',ImportError)>0),
+          'unsupported PCX planes report their actual value');
     DocSetPixel(0,0,5); ClipboardCopy(0,0,1,1,False);
     InitBlankDoc(0); CurrentFile:='OLD.P16';
     DocBeginAction; DocSetPixel(0,0,12); DocCommitAction; Capture;
-    for I:=0 to 13 do begin Check(not ImportImage(BadPCX[I],1,'',nil),'malformed PCX rejected'); Unchanged end;
+    for I:=0 to High(BadPCX) do begin Check(not ImportImage(BadPCX[I],1,'',nil),'malformed PCX rejected'); Unchanged end;
     for I:=0 to 5 do begin Check(not ImportImage(BadPUT[I],1,'GOOD.PAL',nil),'malformed PUT rejected'); Unchanged end;
     for I:=0 to 3 do begin Check(not ImportImage('MULTI.PUT',1,BadPal[I],nil),'invalid palette rejected'); Unchanged end;
     Check(not ImportImage('MISSING.PUT',1,'',nil),'missing association needs palette'); Unchanged;
@@ -90,6 +99,12 @@ begin
     end;
     Polls:=0; CancelAt:=3;
     Check(not ImportImage('PADWIDE.PCX',1,'',CancelImport),'cancel while decoding padded scanline'); Unchanged;
+    for J:=1 to 3 do begin
+      Polls:=0; CancelAt:=J;
+      Check(not ImportImage('PACK4.PCX',1,'',CancelImport),'packed conversion cancellation'); Unchanged;
+    end;
+    Polls:=0; CancelAt:=3;
+    Check(not ImportImage('PAD4.PCX',1,'',CancelImport),'cancel in packed scanline padding'); Unchanged;
     DocUndo; Check((DocPixel(0,0)=0) and not DocDirty,'previous undo survives all failures');
     DocBeginAction; DocSetPixel(0,0,12); DocCommitAction;
     DocBeginAction; Capture;

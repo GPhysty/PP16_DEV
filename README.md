@@ -113,7 +113,8 @@ See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
 - **File > Import**: convert a prepared indexed `.PCX` or PIXELplus 256 `.PUT`
   image to the fixed Tandy palette using exact-color-preserving Floyd-Steinberg.
-  PCX must be version 5, 8-bit, single-plane RLE with its 256-entry palette.
+  PCX must be version 5, single-plane RLE: packed 4-bit with its 16-entry header
+  palette, or 8-bit with its trailing 256-entry palette.
   PUT offers an image-number selector and uses its associated `.APF` or a
   supplied `.PAL`; a missing palette is never silently substituted. Selected
   images must be at most 64x64. Smaller images go at the top left with black

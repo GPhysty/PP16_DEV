@@ -60,6 +60,12 @@ begin
         'import commits literal colors and top-left black padding'); PaintIntact;
   KeyInput(26,0,0);
   Check((DocChecksum=Before) and DocDirty,'UI undo restores pre-import image and dirty state');
+  ChooseImport; TypeName('PACK4.PCX'); KeyInput(13,28,0);
+  Check((OpenMenu=-1) and DocDirty and (CurrentFile='') and
+        (DocPixel(0,0)=0) and (DocPixel(4,0)=1) and (DocPixel(0,1)=1) and
+        (DocPixel(63,63)=14),'packed 4-bit PCX imports through File menu');
+  PaintIntact; KeyInput(26,0,0);
+  Check((DocChecksum=Before) and DocDirty,'packed PCX UI undo restores prior image');
   ChooseImport; TypeName('MULTI.PUT'); KeyInput(13,28,0);
   Check((OpenMenu=9) and (DocChecksum=Before),'PUT selection waits before modifying image');
   HandleClick(241,77,1); KeyInput(13,28,0);

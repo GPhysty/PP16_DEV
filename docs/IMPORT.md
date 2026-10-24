@@ -12,10 +12,16 @@ navigate host folders such as `assets`.
 
 ## Accepted inputs
 
-- PCX: version 5, 8 bits per pixel, one plane, PCX RLE encoding, and the trailing
-  256-entry RGB palette. Images using fewer colors in this indexed profile are
-  accepted. Older 1/2/4-bit PCX, three-plane true-color PCX and other formats
-  are rejected. Padded scanlines are decoded within their declared bounds.
+- PCX: version 5, one plane and PCX RLE encoding. Packed 4-bit files use two
+  pixels per byte, high nibble first, and the 16-entry RGB palette in the header.
+  Eight-bit files use the trailing 256-entry RGB palette. Both support images
+  with fewer used colors. GIMP may export 4-bit PCX when its palette has at most
+  16 entries, even if indexed conversion was set to a maximum of 256 colors.
+  Other versions, 1/2-bit storage, planar 16-color and true-color layouts are
+  rejected with separate version, depth, plane or compression messages.
+  Padded scanlines and RLE runs are bounded in decoded bytes; odd-width packed
+  images ignore the unused low nibble of their last pixel byte. Neither layout
+  permits extra data after its pixel stream and expected palette.
 - PIXELplus 256 PUT: the 7-byte BLOAD wrapper followed by integer-aligned
   image records. Descriptors store width in bits and height in pixels. Files
   may contain up to 1,000 images and 65,536 payload bytes. The complete record
@@ -103,7 +109,8 @@ git diff --check
 
 `tests/importfixtures.py` provides independent indexed decoders and a
 full-image scalar FS oracle, distinct from the DOS two-row implementation.
-The suite checks 17 golden conversions: all four supplied bird PCXs, a
+The suite checks 22 golden conversions: five packed 4-bit PCXs (including odd
+widths, RLE pairs, palette permutation and padded rows), all four supplied bird PCXs, a
 Tandy identity image, generated gradients, a palette permutation, equivalent
 PCX/PUT content, grayscale/channel ramps, small/odd images, wide padded rows, and actual BOUNCE/GLOBE1
 PUT records. It also checks malformed headers, RLE, descriptors, alignment,
