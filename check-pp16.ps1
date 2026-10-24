@@ -20,7 +20,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Memory diagnostic build failed.' }
     Copy-Item -LiteralPath out/MEMINFO.EXE -Destination $runDir
     $dosbox = Join-Path $env:USERPROFILE '.vscode/extensions/xsro.vscode-dosbox-0.1.8-win32-x64/emu/dosbox_x/win32-x64/dosbox-x.exe'
-    function Run-Profile([string]$Name, [string]$Settings, [string]$Commands) {
+    function Invoke-Profile([string]$Name, [string]$Settings, [string]$Commands) {
         $cfg = "$runRel/$Name.conf"
         @"
 [cpu]
@@ -51,30 +51,30 @@ MEMINFO > IMPPOST.TXT
         if ($LASTEXITCODE -ne 0) { throw 'Import fixture setup failed' }
     }
     if ($ImportOnly) {
-        Run-Profile 'import' "[dos]`nint33=true`nlfn=true" $importCommands
+        Invoke-Profile 'import' "[dos]`nint33=true`nlfn=true" $importCommands
         Copy-Item -LiteralPath "$runDir/IMPPRE.TXT" -Destination "$runDir/BEFORE.TXT"
         Copy-Item -LiteralPath "$runDir/IMPPOST.TXT" -Destination "$runDir/AFTER.TXT"
         $checks = @(@('IMPORT.TXT','IMPORT FILE CHECKS PASSED'), @('IMPORTUI.TXT','IMPORT UI CHECKS PASSED'), @('IMAGES/SIBLING.TXT','IMPORT FILE CHECKS PASSED'))
     } elseif ($GradientOnly) {
-        Run-Profile 'gradient' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPGRAD > GRADIENT.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'gradient' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPGRAD > GRADIENT.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('GRADIENT.TXT','GRADIENT CHECKS PASSED')
     } elseif ($FileOnly) {
-        Run-Profile 'fileui' "[dos]`nint33=true`nlfn=true" "MEMINFO > BEFORE.TXT`r`nPPTFUI /FILEUI > FILEUI.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'fileui' "[dos]`nint33=true`nlfn=true" "MEMINFO > BEFORE.TXT`r`nPPTFUI /FILEUI > FILEUI.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('FILEUI.TXT','M6 UI CHECKS PASSED')
     } elseif ($ResponseOnly) {
-        Run-Profile 'response' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTRESP /RESP > RESPONSE.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'response' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTRESP /RESP > RESPONSE.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('RESPONSE.TXT','UI PERF CHECKS PASSED')
     } elseif ($PerfOnly) {
-        Run-Profile 'perf' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTRESP /PERF > PERF.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'perf' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTRESP /PERF > PERF.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('PERF.TXT','UI PERF CHECKS PASSED')
     } elseif ($UndoOnly) {
-        Run-Profile 'undo' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTUNDO /UNDOTEST > UNDO.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'undo' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTUNDO /UNDOTEST > UNDO.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = ,@('UNDO.TXT','M5 CHECKS PASSED')
     } elseif ($ClipOnly) {
-        Run-Profile 'clip' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTCLIP /CLIPTEST > CLIP.TXT`r`nPPELLIP > ELLIPSE.TXT`r`nMEMINFO > AFTER.TXT"
+        Invoke-Profile 'clip' "[dos]`nint33=true" "MEMINFO > BEFORE.TXT`r`nPPTCLIP /CLIPTEST > CLIP.TXT`r`nPPELLIP > ELLIPSE.TXT`r`nMEMINFO > AFTER.TXT"
         $checks = @(@('CLIP.TXT','M9 CHECKS PASSED'), @('ELLIPSE.TXT','ELLIPSE CHECKS PASSED'))
     } else {
-        Run-Profile 'normal' "[dos]`nint33=true" @'
+        Invoke-Profile 'normal' "[dos]`nint33=true" @'
 MEMINFO > BEFORE.TXT
 PPTVIDEO /TEST > PIXELS.TXT
 PPTVIDEO /MTEST > MOUSE.TXT
@@ -88,12 +88,12 @@ PPTFUI /FILEUI > FILEUI.TXT
 PPTVIDEO /DUMP > DUMP.TXT
 MEMINFO > AFTER.TXT
 '@
-    Run-Profile 'nomouse' "[dos]`nint33=false" 'PPTVIDEO /NTEST > NOMOUSE.TXT'
-    Run-Profile 'wrongvid' "[dosbox]`nmachine=svga_s3" 'PP16 /PROBE > WRONGVID.TXT'
+    Invoke-Profile 'nomouse' "[dos]`nint33=false" 'PPTVIDEO /NTEST > NOMOUSE.TXT'
+    Invoke-Profile 'wrongvid' "[dosbox]`nmachine=svga_s3" 'PP16 /PROBE > WRONGVID.TXT'
         $checks = @(@('PIXELS.TXT','M1 CHECKS PASSED'), @('MOUSE.TXT','M2 CHECKS PASSED'), @('VIEW.TXT','M3 CHECKS PASSED'), @('DRAW.TXT','M8 CHECKS PASSED'), @('UNDO.TXT','M5 CHECKS PASSED'), @('CLIP.TXT','M9 CHECKS PASSED'), @('ELLIPSE.TXT','ELLIPSE CHECKS PASSED'), @('RESPONSE.TXT','UI PERF CHECKS PASSED'), @('FILEUI.TXT','M6 UI CHECKS PASSED'), @('DUMP.TXT','M1 CHECKS PASSED'), @('NOMOUSE.TXT','MISSING DRIVER CHECK PASSED'), @('WRONGVID.TXT','REFUSED: Unsupported machine'))
     }
     if (-not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $FileOnly -or $ClipOnly -or $GradientOnly)) {
-        Run-Profile 'gradient' "[dos]`nint33=true" "MEMINFO > GRADPRE.TXT`r`nPPGRAD > GRADIENT.TXT`r`nMEMINFO > GRADPOST.TXT"
+        Invoke-Profile 'gradient' "[dos]`nint33=true" "MEMINFO > GRADPRE.TXT`r`nPPGRAD > GRADIENT.TXT`r`nMEMINFO > GRADPOST.TXT"
         if ((Get-Content "$runDir/GRADPRE.TXT" -Raw) -ne (Get-Content "$runDir/GRADPOST.TXT" -Raw)) { throw 'Gradient tests changed DOS memory chain.' }
         $checks += ,@('GRADIENT.TXT','GRADIENT CHECKS PASSED')
     }
@@ -101,7 +101,7 @@ MEMINFO > AFTER.TXT
         & python -X utf8 tests/filefixtures.py $runDir
         if ($LASTEXITCODE -ne 0) { throw 'File fixture setup failed' }
         # Exercise a host that offers LFNs; PP16 must still use DOS 8.3 APIs.
-        Run-Profile 'files' "[dos]`nint33=true`nlfn=true" @'
+        Invoke-Profile 'files' "[dos]`nint33=true`nlfn=true" @'
 MEMINFO > FILEPRE.TXT
 PPSTART /SAVE > PRODSAVE.TXT
 PPSTART /OPEN > PRODOPEN.TXT
@@ -122,7 +122,7 @@ MEMINFO > FILEPOST.TXT
     if ($FileOnly -or $ClipOnly -or -not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $GradientOnly)) {
         & python -X utf8 tests/clpfixtures.py $runDir
         if ($LASTEXITCODE -ne 0) { throw 'CLP fixture setup failed' }
-        Run-Profile 'clpfiles' "[dos]`nint33=true`nlfn=true" "MEMINFO > CLPPRE.TXT`r`nPPTCLPF /WRITE > CLPWRITE.TXT`r`nPPTCLPF /CHECK > CLPCHECK.TXT`r`nMEMINFO > CLPPOST.TXT"
+        Invoke-Profile 'clpfiles' "[dos]`nint33=true`nlfn=true" "MEMINFO > CLPPRE.TXT`r`nPPTCLPF /WRITE > CLPWRITE.TXT`r`nPPTCLPF /CHECK > CLPCHECK.TXT`r`nMEMINFO > CLPPOST.TXT"
         $checks += @(@('CLPWRITE.TXT','CLP FILE CHECKS PASSED'), @('CLPCHECK.TXT','CLP FILE CHECKS PASSED'))
         if ((Get-Content "$runDir/CLPPRE.TXT" -Raw) -ne (Get-Content "$runDir/CLPPOST.TXT" -Raw)) { throw 'CLP tests changed DOS memory chain.' }
         & python -X utf8 tests/clpfixtures.py $runDir verify
@@ -130,7 +130,7 @@ MEMINFO > FILEPOST.TXT
     }
     if ($runImport) {
         if (-not $ImportOnly) {
-            Run-Profile 'import' "[dos]`nint33=true`nlfn=true" $importCommands
+            Invoke-Profile 'import' "[dos]`nint33=true`nlfn=true" $importCommands
             $checks += @(@('IMPORT.TXT','IMPORT FILE CHECKS PASSED'), @('IMPORTUI.TXT','IMPORT UI CHECKS PASSED'), @('IMAGES/SIBLING.TXT','IMPORT FILE CHECKS PASSED'))
         }
         if ((Get-Content "$runDir/IMPPRE.TXT" -Raw) -ne (Get-Content "$runDir/IMPPOST.TXT" -Raw)) { throw 'Import tests changed DOS memory chain.' }
