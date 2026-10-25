@@ -3,7 +3,8 @@ unit TConvert;
 {$ifndef CPUI8086}{$fatal Requires 8086 compiler}{$endif}
 {$ifndef FPC_MM_MEDIUM}{$fatal Requires Medium memory model}{$endif}
 interface
-type TPalette=array[0..255,0..2] of Byte;
+type TImportMethod=(imDithered,imSolid);
+     TPalette=array[0..255,0..2] of Byte;
      TIndexRow=array[0..63] of Byte;
      TPackedRow=array[0..31] of Byte;
      {Temporary caller-owned state fits the editor's existing 8 KiB stack.
@@ -12,7 +13,7 @@ type TPalette=array[0..255,0..2] of Byte;
        SourcePalette:TPalette;
        Flags:array[0..255] of Byte;
        Errors:array[0..1,0..65,0..2] of LongInt;
-       RowNumber:Integer; ImageWidth:Word;
+       RowNumber:Integer; ImageWidth:Word; Method:TImportMethod;
      end;
 procedure PreparePalette(var State:TConvertState);
 procedure BeginImage(var State:TConvertState; Width:Word);
@@ -22,6 +23,7 @@ implementation
  Errors are Q4 linear RGB. Clamp before quantizing and propagating residuals.
  Named-parameter IMUL avoids the bundled checked LongInt multiply defect.}
 {$I TCVTLUT.INC}
+function PerceptualNearest(R,G,B:Byte; Neutral:Boolean):Byte; forward;
 procedure PreparePalette(var State:TConvertState);
 var I,J:Integer; R,G,B:Word;
 begin
@@ -41,6 +43,9 @@ begin
         if (R=Target[J,0]) and (G=Target[J,1]) and (B=Target[J,2]) then begin
           Flags[I]:=Flags[I] or $10 or Byte(J); Break;
         end;
+      if (Method=imSolid) and ((Flags[I] and $10)=0) then
+        Flags[I]:=$10 or PerceptualNearest(SourcePalette[I,0],SourcePalette[I,1],
+                                         SourcePalette[I,2],(Flags[I] and $80)<>0);
     end;
   end;
 end;
@@ -71,6 +76,54 @@ asm
   imul ax
 end;
 
+function Product16(A,B:Integer):LongInt; assembler;
+asm
+  {All operands fit signed 16 bits; DX:AX holds the full 32-bit product.}
+  mov ax,A
+  mov dx,B
+  imul dx
+end;
+
+function LabCurve(V:Word):Integer;
+var I,F:Integer;
+begin
+  I:=V shr 7; F:=V and 127;
+  LabCurve:=(Product16(LabCurveLUT[I],128-F)+
+             Product16(LabCurveLUT[I+1],F)+64) shr 7;
+end;
+
+function LabRound(V:LongInt):Integer;
+begin
+  if V<0 then LabRound:=-((-V+1024) shr 11)
+  else LabRound:=(V+1024) shr 11;
+end;
+
+function PerceptualNearest(R,G,B:Byte; Neutral:Boolean):Byte;
+var RGB:array[0..2] of Integer; F,Lab:array[0..2] of Integer;
+    I,J,D:Integer; V,Score,Best:LongInt; Chosen:Byte;
+begin
+  RGB[0]:=LinearLUT[R]; RGB[1]:=LinearLUT[G]; RGB[2]:=LinearLUT[B];
+  for I:=0 to 2 do begin
+    V:=0;
+    for J:=0 to 2 do V:=V+Product16(RGB[J],LabMatrix[I,J]);
+    {Q15 matrix times Q12 RGB -> Q15 normalized D65 XYZ.}
+    F[I]:=LabCurve(Word((V+2048) shr 12));
+  end;
+  Lab[0]:=LabRound(Product16(F[1],116)-524288);
+  Lab[1]:=LabRound(Product16(F[0]-F[1],500));
+  Lab[2]:=LabRound(Product16(F[1]-F[2],200));
+  Best:=2147483647; Chosen:=0;
+  for I:=0 to 15 do
+    if not Neutral or (I=0) or (I=7) or (I=8) or (I=15) then begin
+      Score:=0;
+      for J:=0 to 2 do begin
+        D:=Lab[J]-TargetLab[I,J]; Score:=Score+Square16(D);
+      end;
+      if Score<Best then begin Best:=Score; Chosen:=I end;
+    end;
+  PerceptualNearest:=Chosen;
+end;
+
 function Nearest(R,G,B:Word; Neutral:Boolean):Byte;
 var I,D:Integer; Score,Best,S:LongInt; Chosen:Byte;
 begin
@@ -93,6 +146,15 @@ var Current,Following,Direction,X,P,C:Integer;
 begin
   with State do begin
     if RowNumber>=64 then Halt(91);
+    if Method=imSolid then begin
+      FillChar(Dest,SizeOf(Dest),0);
+      for X:=0 to ImageWidth-1 do begin
+        Chosen:=Flags[Source[X]] and 15;
+        if Odd(X) then Dest[X shr 1]:=Dest[X shr 1] or Chosen
+        else Dest[X shr 1]:=Chosen shl 4;
+      end;
+      Inc(RowNumber); Exit;
+    end;
     Current:=RowNumber and 1; Following:=1-Current;
     FillChar(Errors[Following],SizeOf(Errors[Following]),0);
     Direction:=1; X:=0;

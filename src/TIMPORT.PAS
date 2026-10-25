@@ -1,7 +1,7 @@
 unit TImport;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
-uses TDoc;
+uses TDoc,TConvert;
 type TImportCancel=function:Boolean;
      TImportError=String[48];
 var ImportError:TImportError;
@@ -10,8 +10,10 @@ function InspectImport(const Name:String; Selected:Word;
 function ResolveImportPalette(const Image,Requested:String):String;
 function ReadImported(const Name,PaletteName:String; Selected:Word;
                       var Pixels:TDocPixels; Cancel:TImportCancel):Boolean;
+function ReadImportedWithMethod(const Name,PaletteName:String; Selected:Word;
+                      var Pixels:TDocPixels; Method:TImportMethod; Cancel:TImportCancel):Boolean;
 implementation
-uses Dos,TConvert;
+uses Dos;
 var InputFile:File; InputSize,Position,Limit:LongInt;
     Buffer:array[0..255] of Byte; BufferAt,BufferCount:Word;
 
@@ -245,13 +247,13 @@ begin
   ConvertInput:=True;
 end;
 
-function ReadImported(const Name,PaletteName:String; Selected:Word;
-                      var Pixels:TDocPixels; Cancel:TImportCancel):Boolean;
+function ReadImportedWithMethod(const Name,PaletteName:String; Selected:Word;
+                      var Pixels:TDocPixels; Method:TImportMethod; Cancel:TImportCancel):Boolean;
 var PCX,OK:Boolean; Count,W,H,Stride:Word; Start,EndPos,PixelEnd:LongInt;
     I,C,PaletteLast:Integer; Bits:Byte;
     State:TConvertState;
 begin
-  ReadImported:=False; ImportError:=''; PCX:=IsPCX(Name);
+  ReadImportedWithMethod:=False; ImportError:=''; PCX:=IsPCX(Name); State.Method:=Method;
   if Cancelled(Cancel) then Exit;
   if not PCX then
     if not PUTPalette(ResolveImportPalette(Name,PaletteName),State.SourcePalette) then Exit;
@@ -271,6 +273,12 @@ begin
     EndPos:=Start+LongInt(DWord(W)*DWord(H));
     OK:=ConvertInput(State,0,W,H,W,Start,EndPos,Pixels,Cancel);
   end;
-  ReadImported:=CloseInput(OK);
+  ReadImportedWithMethod:=CloseInput(OK);
+end;
+
+function ReadImported(const Name,PaletteName:String; Selected:Word;
+                      var Pixels:TDocPixels; Cancel:TImportCancel):Boolean;
+begin
+  ReadImported:=ReadImportedWithMethod(Name,PaletteName,Selected,Pixels,imDithered,Cancel);
 end;
 end.

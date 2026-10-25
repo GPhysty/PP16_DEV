@@ -10,6 +10,25 @@ directory. Place copies of images and their palettes there before launching
 the editor. The import dialog lists files in that directory; it does not
 navigate host folders such as `assets`.
 
+## Import method
+
+Click **METHOD** to switch between **Dithered shading** and **Solid colors**.
+Tab moves through filename/palette, file list/image selector, method, OK and
+Cancel. With the method focused, Space, Enter or Left/Right switches it;
+Tab then Enter on OK imports. Both choices work for packed 4-bit PCX, 8-bit
+PCX and PUT. Each new Import dialog starts with Dithered shading; the choice
+survives the transition into PUT image/palette selection.
+
+- **Dithered shading:** the existing exact-color-preserving Floyd-Steinberg
+  conversion. Mixed pixels approximate colors between the Tandy entries.
+- **Solid colors:** each source palette color maps to one nearest Tandy color
+  in CIELAB/D65 space, without error diffusion. Flat source areas stay flat.
+  This favors the cohesive color areas often useful in small sprites.
+
+Both methods preserve exact Tandy RGB colors and keep neutral grays neutral.
+They use the same dimensions, black padding, cancellation and undo behavior.
+Resizing and any staged scaling still happen before import.
+
 ## Accepted inputs
 
 - PCX: version 5, one plane and PCX RLE encoding. Packed 4-bit files use two
@@ -34,7 +53,7 @@ navigate host folders such as `assets`.
 ## PUT image and palette selection
 
 Choosing PUT opens its settings in the same dialog. Click `<` or `>` to choose
-an image. Tab moves between palette name, image selector, OK and Cancel.
+an image. Tab moves between palette name, image selector, method, OK and Cancel.
 Up/Down changes the image; Page Up/Down moves ten. When the image selector has
 focus, Left/Right and Home/End also navigate. The selected dimensions are shown.
 
@@ -72,9 +91,31 @@ pixels and dirty flag; the imported document remains unnamed. Clipboard pixels,
 gradient endpoints, percentage, foreground/background, tool and brush size are
 retained. Successful import resets the view and clears the selection marquee.
 
+## PCX export
+
+Choose **File > Export PCX** to write the whole 64x64 document as a version 5,
+single-plane, 8-bit indexed RLE PCX. Export always uses 8-bit storage, including
+solid images. Palette slots 0..15 contain the exact Tandy RGBI values; slots
+16..255 are black and unused. Pixels are exported literally without another
+color conversion, so importing the result restores every original pixel.
+
+The chooser accepts only `.PCX` DOS 8.3 names, adds `.PCX` if omitted, and
+lists existing PCX files. With the normal launcher the destination is
+`out/medium`. Replacement requires confirmation with Cancel as the default.
+The file is written to a temporary PCX, closed and reimported for pixel
+verification before replacement. Previous files remain under `TRASH` using
+the same protection as native Save. Export does not change the document's
+native filename, dirty flag, undo, clipboard, paint settings, selection or view.
+
+`check-pp16.ps1 -FileOnly -Cycles 3000` covers PCX export through the real
+editor and dialog, exact-pixel reimport, 63/64-pixel RLE boundaries, solid
+images, failed writes/replacements, retained originals, heap restoration and
+stack margin. An independent host decoder checks headers, all 256 palette
+entries and every exported index.
+
 ## Conversion and memory design
 
-`TCONVERT` implements the selected fixed-point serpentine Floyd-Steinberg
+The Dithered shading path in `TCONVERT` implements fixed-point serpentine Floyd-Steinberg
 variant: a 12-bit sRGB-to-linear lookup, Q4 signed 32-bit diffusion errors,
 3:6:1 weighted linear RGB distance and stable target-index tie ordering.
 Corrected values are clamped before quantization and residual calculation.
@@ -83,9 +124,15 @@ Tandy RGB colors retain their literal index, including brown #AA5500, while
 their residual continues to propagate. The active painting gradient is not
 consulted or rebuilt. Output remains ordinary P16-compatible packed indexes.
 
-The 2,612-byte converter state is local to the import call and uses the
+Solid colors prepares a palette-index map once and packs rows without
+diffusing error. Its CIELAB/D65 approximation uses an integer XYZ matrix,
+an interpolated Lab-curve table and squared CIE76 distance. No floating-point
+runtime or additional full-image buffer is required. Tests compare its output
+against an independent floating-point CIELAB reference.
+
+The approximately 2.6 KiB converter state is local to the import call and uses the
 existing 8 KiB stack. It contains the source palette, shared flags, two
-66-column RGB error rows and counters. The 608-byte lookup/target tables
+66-column RGB error rows, method and counters. The 1,236-byte lookup/target tables
 remain static. The reader has a 256-byte input cache and 64-byte source /
 32-byte packed row buffers; it does not allocate a full source image. Output
 reuses `TFILES`' existing 2,048-byte stage. `TDOC.DocImport` makes one bulk
@@ -109,8 +156,9 @@ git diff --check
 
 `tests/importfixtures.py` provides independent indexed decoders and a
 full-image scalar FS oracle, distinct from the DOS two-row implementation.
-The suite checks 22 golden conversions: five packed 4-bit PCXs (including odd
-widths, RLE pairs, palette permutation and padded rows), all four supplied bird PCXs, a
+The suite checks 23 images with both methods: five packed 4-bit PCXs (including odd
+widths, RLE pairs, palette permutation and padded rows), a flat-color image,
+all four supplied bird PCXs, a
 Tandy identity image, generated gradients, a palette permutation, equivalent
 PCX/PUT content, grayscale/channel ramps, small/odd images, wide padded rows, and actual BOUNCE/GLOBE1
 PUT records. It also checks malformed headers, RLE, descriptors, alignment,

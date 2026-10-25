@@ -21,7 +21,7 @@ procedure PerfCase(N:Integer);
 {$ifdef PP16_IMPORT_TEST}function ImportChecks:Word;{$endif}
 procedure PointerFeedback(X,Y:Integer);
 implementation
-uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster,TPaint
+uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster,TPaint,TConvert
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
       ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','CUT','CIRCLE','SQUARE','LINE');
@@ -462,9 +462,9 @@ end;
 
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
       PopupW:array[0..5] of Integer=(168,152,104,200,176,112);
-      MenuRows:array[0..5] of Integer=(6,7,1,2,0,2);
+      MenuRows:array[0..5] of Integer=(7,7,1,2,0,2);
       Labels:array[0..5,0..7] of String[20]=(
-       ('New','Open...','Save','Save As...','Import...','Exit','',''),
+       ('New','Open...','Save','Save As...','Import...','Export PCX...','Exit',''),
        ('Undo','','Cut','Copy','Paste','','Paste Behind',''),
        ('Grid On','','','','','','',''),
        ('Clear','Clear to Colour','','','','','',''),
@@ -481,7 +481,7 @@ end;
 
 function Enabled(M,I:Integer):Boolean;
 begin
-  Enabled:=((M=0) and (I in [0..5])) or
+  Enabled:=((M=0) and (I in [0..6])) or
 {$ifdef PP16_CLIP_ENABLED}
            ((M=1) and (((I=0) and DocCanUndo) or
                        ((I in [2,3]) and SelectionValid) or
@@ -985,7 +985,8 @@ begin
                 0:RequestCommand(1); 1:RequestCommand(3);
                 2:SaveCurrent; 3:StartFileDialog(True);
                 4:begin ClosePopup; BeginImportDialog; SetPopup(9) end;
-                5:RequestCommand(2);
+                5:begin BeginExportDialog; SetPopup(9) end;
+                6:RequestCommand(2);
               end;
               Exit;
             end
@@ -1967,7 +1968,10 @@ end;
 
 {$ifdef PP16_FILEUI_TEST}
 function FileUIChecks:Word;
-var F:Word; Before:DWord; I:Integer;
+var F:Word; Before:DWord; I:Integer; WasDirty,WasUndo:Boolean; OldName:TFileName;
+    OldPanX,OldPanY:Integer;
+    UndoPixel:Byte;
+{$I ../tests/STACKCHK.INC}
 
   procedure Check(OK:Boolean; const Name:String);
   begin if not OK then begin Inc(F); WriteLn('FAIL: ',Name) end end;
@@ -1985,7 +1989,7 @@ var F:Word; Before:DWord; I:Integer;
   end;
 
 begin
-  F:=0; InitUI; DrawUI; Before:=DocChecksum;
+  F:=0; InitUI; MarkUnusedStack; DrawUI; Before:=DocChecksum;
   KeyInput(19,31,0); KeyInput(15,24,0);
   Check(OpenMenu=-1,'removed Save/Open shortcuts do nothing');
   Choose(0,2); Check(OpenMenu=9,'Save of unnamed image opens dialog');
@@ -2020,6 +2024,35 @@ begin
   Check((OpenMenu=-1) and (CurrentFile=ToolAtlasName),'mouse file list and OK');
   StartFileDialog(True); KeyInput(13,28,0); KeyInput(9,15,0); KeyInput(13,28,0);
   Check((OpenMenu=-1) and not DocDirty,'explicit overwrite confirms');
+  SetZoom(8); PanView(3,5); ForeColor:=13; BackColor:=6; BrushSize:=3;
+  OldPanX:=PanX; OldPanY:=PanY;
+  UndoPixel:=DocPixel(1,0);
+  DocBeginAction; DocSetPixel(1,0,9); DocCommitAction; Before:=DocChecksum;
+  OldName:=CurrentFile; WasDirty:=DocDirty; WasUndo:=DocCanUndo;
+  Choose(0,5);
+  Check((OpenMenu=9) and DialogExporting and DialogSaving and not DialogImporting,
+        'File Export PCX opens dedicated export chooser');
+  KeyInput(27,1,0);
+  Check((OpenMenu=-1) and (DocChecksum=Before) and DocDirty,'cancel export preserves image');
+  Choose(0,5); TypeName('WRONG.PUT'); KeyInput(13,28,0);
+  Check((OpenMenu=9) and (FileError<>'') and not Exists('WRONG.PUT'),
+        'export rejects non-PCX filename');
+  KeyInput(27,1,0); Choose(0,5); TypeName('UIEXPORT'); KeyInput(13,28,0);
+  Check((OpenMenu=-1) and Exists('UIEXPORT.PCX') and (CurrentFile=OldName) and
+        (DocDirty=WasDirty) and (DocCanUndo=WasUndo) and (DocChecksum=Before),
+        'successful export adds PCX extension and preserves native document state');
+  Check((Zoom=8) and (PanX=OldPanX) and (PanY=OldPanY) and
+        (ForeColor=13) and (BackColor=6) and (BrushSize=3),
+        'export keeps view and paint settings');
+  Choose(0,5); TypeName('UIEXPORT.PCX'); KeyInput(13,28,0); KeyInput(13,28,0);
+  Check((OpenMenu=9) and (DocChecksum=Before),'PCX replacement defaults to Cancel');
+  KeyInput(27,1,0);
+  Choose(0,5); TypeName('UIEXPORT.PCX'); KeyInput(13,28,0);
+  HandleClick(110,130,1);
+  Check((OpenMenu=-1) and DocDirty and (CurrentFile=OldName),'mouse confirms PCX replacement');
+  DocUndo;
+  Check((DocPixel(1,0)=UndoPixel) and not DocDirty,'export undo restores original pixels and clean state');
+  Check(CheckStackMargin,'export dialog keeps at least 1 KiB stack margin');
   StartFileDialog(False);
   WriteLn('M6: Save/Open dialogs, overwrite, dirty protection and saved undo checked');
   FileUIChecks:=F;
@@ -2154,7 +2187,7 @@ begin
   KeyInput(13,28,0);
   Check((OpenMenu=-1) and (DocChecksum=Before) and DocCanUndo,
         'default Enter cancels New and preserves undo');
-  Choose(0,5); KeyInput(27,1,0);
+  Choose(0,6); KeyInput(27,1,0);
   Check(not ExitRequested and (DocChecksum=Before),'Escape cancels dirty File Exit');
   KeyInput(27,1,0); HandleClick(180,115,1);
   Check(not ExitRequested and (OpenMenu=-1),'mouse Cancel keeps working image');
@@ -2163,15 +2196,15 @@ begin
         'explicit discard creates clean blank and resets undo');
   InitUI; Choose(0,0);
   Check((DocChecksum=0) and (OpenMenu=-1),'clean New needs no discard prompt');
-  Choose(0,5); Check(ExitRequested,'clean File Exit works');
+  Choose(0,6); Check(ExitRequested,'clean File Exit works');
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,0);
   Feed(80,115,1); AtDoc(30,30,1); AtDoc(30,30,0);
   Check((DocChecksum=0) and not DocDirty,'discard click cannot leak into new canvas');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,5);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,6);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check(ExitRequested,'explicit keyboard discard exits');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,5);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,6);
   HandleClick(80,115,1); Check(ExitRequested,'explicit mouse discard exits');
 
   {Leave a realistic dirty-document prompt for the framebuffer inspection.}

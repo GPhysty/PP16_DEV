@@ -1,9 +1,12 @@
 unit TFDialog;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
-var DialogSaving,DialogImporting:Boolean;
+uses TConvert;
+var DialogSaving,DialogImporting,DialogExporting:Boolean;
+    DialogImportMethod:TImportMethod;
 procedure BeginFileDialog(Saving:Boolean);
 procedure BeginImportDialog;
+procedure BeginExportDialog;
 procedure DrawFileDialog;
 function FileKey(Key,Scan:Byte):Byte;
 function FileClick(X,Y:Integer):Byte;
@@ -18,6 +21,20 @@ var Names:array[0..63] of TFileName;
 function Number(N:Word):String;
 var S:String[6];
 begin Str(N,S); Number:=S end;
+
+function ListRows:Integer;
+begin if DialogImporting then ListRows:=4 else ListRows:=6 end;
+
+procedure DrawMethod;
+const Labels:array[TImportMethod] of String[16]=('DITHERED SHADING','SOLID COLORS');
+var C:Byte;
+begin
+  if not DialogImporting then Exit;
+  FillBox(70,102,257,112,1); C:=9; if Focus=4 then C:=14;
+  DrawBorder(70,102,257,112,C);
+  SmallText(76,105,'METHOD: '+Labels[DialogImportMethod],15);
+  SmallText(244,105,'<>',15);
+end;
 
 procedure DrawName;
 var BG,FG:Byte;
@@ -38,15 +55,16 @@ begin
     DrawBorder(232,72,253,85,7); SmallText(241,77,'>',15);
     if Focus=1 then DrawBorder(71,71,255,86,14);
     SmallText(76,91,'SIZE '+Number(ImportWidth)+' X '+Number(ImportHeight),15);
-    SmallText(76,102,'TOP LEFT; BLACK PADDING',15); Exit;
+    DrawMethod; Exit;
   end;
-  for I:=0 to 5 do begin
+  for I:=0 to ListRows-1 do begin
     N:=Top+I; BG:=1; FG:=15;
     if (N=Chosen) and (Focus=1) then begin BG:=15; FG:=1 end;
     FillBox(70,71+I*7,245,77+I*7,BG);
     if N<NameCount then SmallText(76,72+I*7,Names[N],FG);
   end;
-  SmallText(250,74,'^',15); SmallText(250,106,'V',15);
+  SmallText(250,74,'^',15); SmallText(250,64+ListRows*7,'V',15);
+  DrawMethod;
 end;
 
 procedure DrawButtons;
@@ -62,6 +80,13 @@ begin
   C:=8; if Focus=3 then C:=4; DrawBorder(174,125,234,136,C);
 end;
 
+procedure ChangeMethod;
+begin
+  if DialogImportMethod=imDithered then DialogImportMethod:=imSolid
+  else DialogImportMethod:=imDithered;
+  Focus:=4; DrawName; DrawList; DrawButtons;
+end;
+
 procedure DrawMessage;
 begin
   FillBox(58,115,261,121,1);
@@ -75,7 +100,8 @@ end;
 procedure DrawFileDialog;
 begin
   FillBox(50,36,269,145,1); DrawBorder(50,36,269,145,9); DrawBorder(53,39,266,142,7);
-  if ImportDetails then Text8(88,43,'Import PUT',15)
+  if DialogExporting then Text8(88,43,'Export 8-bit PCX',15)
+  else if ImportDetails then Text8(88,43,'Import PUT',15)
   else if DialogImporting then Text8(88,43,'Import PCX/PUT',15)
   else if DialogSaving then Text8(88,43,'Save P16 / CLP',15)
   else Text8(88,43,'Open P16 / CLP',15);
@@ -85,19 +111,25 @@ begin
   SmallText(64,138,'TAB:FIELD ENTER:OK ESC:CANCEL',15);
 end;
 
-procedure StartDialog(Saving,Importing:Boolean);
-var S:SearchRec; I,J:Integer; Temp:TFileName;
+procedure StartDialog(Saving,Importing,Exporting:Boolean);
+var S:SearchRec; I,J,P:Integer; Temp:TFileName;
     Valid:Boolean;
 begin
-  DialogSaving:=Saving; DialogImporting:=Importing; ImportDetails:=False;
+  DialogSaving:=Saving; DialogImporting:=Importing; DialogExporting:=Exporting;
+  ImportDetails:=False;
   ConfirmReplace:=False; Focus:=0; SelectAll:=True;
   Entry:=CurrentFile; if Entry='' then Entry:='UNTITLED.P16';
   if Importing then Entry:='IMAGE.PCX';
+  if Exporting then begin
+    P:=Pos('.',Entry); if P<>0 then Entry:=Copy(Entry,1,P-1);
+    Entry:=Entry+'.PCX';
+  end;
   FileError:=''; Cursor:=Length(Entry); NameCount:=0; Chosen:=0; Top:=0;
   FindFirst('*.*',AnyFile,S);
   while (DosError=0) and (NameCount<64) do begin
     if (S.Attr and $18)=0 then begin
-      if Importing then Valid:=NormalizeImportName(S.Name,Temp)
+      if Exporting then Valid:=NormalizeExportName(S.Name,Temp)
+      else if Importing then Valid:=NormalizeImportName(S.Name,Temp)
       else Valid:=NormalizeName(S.Name,Temp);
       if Valid and (Temp=S.Name) then begin Names[NameCount]:=Temp; Inc(NameCount) end;
     end;
@@ -112,9 +144,11 @@ begin
 end;
 
 procedure BeginFileDialog(Saving:Boolean);
-begin StartDialog(Saving,False) end;
+begin StartDialog(Saving,False,False) end;
 procedure BeginImportDialog;
-begin StartDialog(False,True) end;
+begin DialogImportMethod:=imDithered; StartDialog(False,True,False) end;
+procedure BeginExportDialog;
+begin StartDialog(True,False,True) end;
 
 procedure ChangeImage(N:Integer);
 begin
@@ -141,7 +175,7 @@ begin
   if ImportDetails then begin
     if not NormalizePaletteName(Entry,Name) then begin DrawMessage; Exit end;
     FillBox(58,115,261,121,1); SmallText(60,116,'CONVERTING... ESC TO CANCEL',14);
-    OK:=ImportImage(ImportSource,ImageNumber,Name,ImportCancelled);
+    OK:=ImportImageWithMethod(ImportSource,ImageNumber,Name,DialogImportMethod,ImportCancelled);
   end else begin
     if not NormalizeImportName(Entry,Name) then begin DrawMessage; Exit end;
     Entry:=Name;
@@ -155,7 +189,7 @@ begin
       DrawFileDialog; Exit;
     end;
     FillBox(58,115,261,121,1); SmallText(60,116,'CONVERTING... ESC TO CANCEL',14);
-    OK:=ImportImage(Name,1,'',ImportCancelled);
+    OK:=ImportImageWithMethod(Name,1,'',DialogImportMethod,ImportCancelled);
   end;
   if OK then SubmitImport:=2 else begin Focus:=0; SelectAll:=True; DrawFileDialog end;
 end;
@@ -166,7 +200,7 @@ begin
   if N<0 then N:=0; if N>=NameCount then N:=NameCount-1;
   Chosen:=N;
   if Chosen<Top then Top:=Chosen;
-  if Chosen>=Top+6 then Top:=Chosen-5;
+  if Chosen>=Top+ListRows then Top:=Chosen-ListRows+1;
   Entry:=Names[Chosen]; Cursor:=Length(Entry); SelectAll:=True;
   DrawName; DrawList;
 end;
@@ -176,14 +210,17 @@ var Name:TFileName; OK:Boolean;
 begin
   Submit:=0;
   if DialogImporting then begin Submit:=SubmitImport; Exit end;
-  if not NormalizeName(Entry,Name) then begin DrawMessage; Exit end;
+  if DialogExporting then OK:=NormalizeExportName(Entry,Name)
+  else OK:=NormalizeName(Entry,Name);
+  if not OK then begin DrawMessage; Exit end;
   Entry:=Name;
   if not ConfirmReplace and
      ((DialogSaving and Exists(Name)) or
       (not DialogSaving and not ClipName(Name) and DocDirty)) then begin
     ConfirmReplace:=True; Focus:=3; DrawFileDialog; Exit;
   end;
-  if DialogSaving then OK:=SaveImage(Name,ConfirmReplace) else OK:=LoadImage(Name);
+  if DialogExporting then OK:=ExportPCX(Name,ConfirmReplace)
+  else if DialogSaving then OK:=SaveImage(Name,ConfirmReplace) else OK:=LoadImage(Name);
   ConfirmReplace:=False;
   if OK then Submit:=2 else begin Focus:=0; SelectAll:=True; DrawFileDialog end;
 end;
@@ -198,14 +235,21 @@ begin
   end;
   if Key=9 then begin
     if ConfirmReplace then begin if Focus=3 then Focus:=2 else Focus:=3 end
-    else Focus:=(Focus+1) mod 4;
+    else if DialogImporting then begin
+      case Focus of 0:Focus:=1; 1:Focus:=4; 4:Focus:=2; 2:Focus:=3; 3:Focus:=0 end;
+    end else Focus:=(Focus+1) mod 4;
     DrawName; DrawList; DrawButtons; Exit;
   end;
   if Key=13 then begin
-    if Focus=3 then FileKey:=FileKey(27,1) else FileKey:=Submit;
+    if DialogImporting and (Focus=4) then ChangeMethod
+    else if Focus=3 then FileKey:=FileKey(27,1) else FileKey:=Submit;
     Exit;
   end;
   if ConfirmReplace then Exit;
+  if DialogImporting and (Focus=4) then begin
+    if (Key=32) or (Scan=75) or (Scan=77) then ChangeMethod;
+    Exit;
+  end;
   if ImportDetails and ((Scan in [72,80,73,81]) or
      ((Focus=1) and (Scan in [71,75,77,79]))) then begin
     case Scan of
@@ -219,7 +263,7 @@ begin
     Focus:=1;
     case Scan of
       72:Choose(Chosen-1); 80:Choose(Chosen+1);
-      73:Choose(Chosen-6); 81:Choose(Chosen+6);
+      73:Choose(Chosen-ListRows); 81:Choose(Chosen+ListRows);
     end;
     DrawButtons; Exit;
   end;
@@ -256,6 +300,9 @@ begin
     Exit;
   end;
   if ConfirmReplace then Exit;
+  if DialogImporting and (X>=70) and (X<=257) and (Y>=102) and (Y<=112) then begin
+    ChangeMethod; Exit;
+  end;
   if ImportDetails and (Y>=71) and (Y<=86) then begin
     if (X>=198) and (X<=219) then ChangeImage(ImageNumber-1)
     else if (X>=232) and (X<=253) then ChangeImage(ImageNumber+1);
@@ -263,10 +310,11 @@ begin
   end;
   if (X>=104) and (X<=255) and (Y>=56) and (Y<=65) then begin
     Focus:=0; SelectAll:=True; DrawName; DrawList; DrawButtons;
-  end else if not ImportDetails and (X>=70) and (X<=257) and (Y>=71) and (Y<=112) then begin
+  end else if not ImportDetails and (X>=70) and (X<=257) and
+                      (Y>=71) and (Y<=70+ListRows*7) then begin
     Focus:=1;
     if X>=248 then begin
-      if Y<92 then Choose(Chosen-1) else Choose(Chosen+1);
+      if Y<71+ListRows*7 div 2 then Choose(Chosen-1) else Choose(Chosen+1);
     end else Choose(Top+(Y-71) div 7);
     DrawName; DrawList; DrawButtons;
   end;

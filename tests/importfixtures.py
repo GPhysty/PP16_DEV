@@ -14,6 +14,32 @@ assert all(a < b for a,b in zip(LUT,LUT[1:]))
 LINEAR = [tuple(LUT[v] for v in c) for c in TARGET]
 
 
+def lab(rgb):
+    """Floating-point CIELAB/D65 reference, independent of DOS integer tables."""
+    linear = [v/255/12.92 if v/255 <= .04045 else ((v/255+.055)/1.055)**2.4 for v in rgb]
+    matrix = ((.4124564,.3575761,.1804375),(.2126729,.7151522,.0721750),(.0193339,.1191920,.9503041))
+    white = (.95047,1,1.08883)
+    f = []
+    for row,w in zip(matrix,white):
+        t = sum(c*k for c,k in zip(linear,row))/w
+        f.append(t**(1/3) if t > (6/29)**3 else t/(3*(6/29)**2)+4/29)
+    return (116*f[1]-16,500*(f[0]-f[1]),200*(f[1]-f[2]))
+
+
+def solid_oracle(rows, palette):
+    targets = [lab(rgb) for rgb in TARGET]
+    mapping = []
+    for rgb in palette:
+        source = lab(rgb)
+        choices = (0,7,8,15) if rgb[0] == rgb[1] == rgb[2] else range(16)
+        mapping.append(min(choices,key=lambda i:sum((a-b)**2 for a,b in zip(source,targets[i]))))
+    out = bytearray(2048)
+    for y,row in enumerate(rows):
+        for x,index in enumerate(row):
+            out[y*32+x//2] |= mapping[index] << (4 if x%2 == 0 else 0)
+    return bytes(out)
+
+
 def oracle(rows, palette):
     """Full-image error grid, deliberately distinct from the DOS two-row ring."""
     h, w = len(rows), len(rows[0])
@@ -160,7 +186,10 @@ def setup():
     def expected(name, image, palette, rows, colors):
         n=len(cases); raw=f'E{n:02}.RAW'; output=f'I{n:02}.P16'
         save(raw,oracle(rows,colors))
-        cases.append(dict(name=name,image=image,palette=palette,expected=raw,output=output))
+        solid_raw=f'S{n:02}.RAW'; solid_output=f'S{n:02}.P16'
+        save(solid_raw,solid_oracle(rows,colors))
+        cases.append(dict(name=name,image=image,palette=palette,expected=raw,output=output,
+                          solid_expected=solid_raw,solid_output=solid_output))
     dac = [(c[0]//85*21,c[1]//85*21,c[2]//85*21) for c in TARGET]
     dac += [(i%64,(i*13)%64,(i*29)%64) for i in range(16,256)]
     colors = expanded(dac)
@@ -216,6 +245,9 @@ def setup():
         save(f'{name}.PUT',data); save(f'PALETTES/{name}.APF',pal)
         colors_real=expanded([tuple(pal[i:i+3]) for i in range(0,1024,4)])
         expected(f'{name}.PUT',index,'',decode_put(data,index),colors_real)
+    flat = [[0]*64 for _ in range(64)]
+    save('FLAT.PCX',pcx(flat,[(114,77,42)]))
+    expected('FLAT.PCX',1,'',flat,[(114,77,42)])
     base=pcx(small,colors,8)
     mutations = {'PCXVER':(1,3),'PCXBPP':(3,2),'PCXPLN':(65,3),'PCXENC':(2,2),
                  'PCXWIDE':(8,64),'PCXHIGH':(10,64),'PCXLINE':(66,3),'PCXXMIN':(4,6)}
@@ -246,12 +278,16 @@ def setup():
     for c in cases:
         lines.extend(str(c[k]) for k in ['name','image','palette','expected','output'])
     (ROOT/'CASES.TXT').write_text('\n'.join(lines)+'\n',encoding='ascii')
+    lines=[str(len(cases))]
+    for c in cases:
+        lines.extend(str(c[k]) for k in ['name','image','palette','solid_expected','solid_output'])
+    (ROOT/'SOLID.TXT').write_text('\n'.join(lines)+'\n',encoding='ascii')
     inputs={str(p.relative_to(ROOT)):digest(p) for p in ROOT.rglob('*')
             if p.suffix.upper() in ('.PCX','.PUT','.PAL','.APF')}
     protected={str(p.relative_to(REPO)):digest(p) for directory in ['assets','dist']
                for p in (REPO/directory).rglob('*') if p.is_file()}
     (ROOT/'IMPORTS.JSON').write_text(json.dumps(dict(cases=cases,inputs=inputs,protected=protected),indent=2)+'\n')
-    print(f'Import fixtures: {len(cases)} golden conversions, malformed inputs, palettes, directory layouts')
+    print(f'Import fixtures: {len(cases)} images in both methods, malformed inputs, palettes, directory layouts')
 
 
 def verify():
@@ -260,12 +296,18 @@ def verify():
         output=(ROOT/c['output']).read_bytes()
         assert len(output)==2068 and output[:4]==b'P16\x1a', c
         assert output[20:]==(ROOT/c['expected']).read_bytes(), c
+        solid=(ROOT/c['solid_output']).read_bytes()
+        assert solid[:20]==output[:20] and solid[20:]==(ROOT/c['solid_expected']).read_bytes(), c
     for directory,protected in [(ROOT,data['inputs']),(REPO,data['protected'])]:
         for relative,sha in protected.items():
             assert digest(directory/relative)==sha, relative
     assert (ROOT/'I01.P16').read_bytes()==(ROOT/'I02.P16').read_bytes()==(ROOT/'I03.P16').read_bytes()
     by_name = {c['name']: c for c in data['cases']}
     assert (ROOT/by_name['PACK4.PCX']['output']).read_bytes() == (ROOT/by_name['PERM4.PCX']['output']).read_bytes()
+    assert (ROOT/by_name['GEN.PCX']['solid_output']).read_bytes() == (ROOT/by_name['GEN.PUT']['solid_output']).read_bytes() == (ROOT/by_name['PERM.PCX']['solid_output']).read_bytes()
+    assert (ROOT/by_name['PACK4.PCX']['solid_output']).read_bytes() == (ROOT/by_name['PERM4.PCX']['solid_output']).read_bytes()
+    assert (ROOT/by_name['IDENT.PCX']['output']).read_bytes() == (ROOT/by_name['IDENT.PCX']['solid_output']).read_bytes()
+    assert (ROOT/by_name['FLAT.PCX']['output']).read_bytes() != (ROOT/by_name['FLAT.PCX']['solid_output']).read_bytes()
     print('INDEPENDENT IMPORT VERIFICATION PASSED: golden pixels, format/permutation equality, unchanged inputs and release')
 
 

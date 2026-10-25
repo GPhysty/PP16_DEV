@@ -112,7 +112,10 @@ See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
   If there are unsaved changes, choose **Cancel** or **Discard**. Cancel is the
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
 - **File > Import**: convert a prepared indexed `.PCX` or PIXELplus 256 `.PUT`
-  image to the fixed Tandy palette using exact-color-preserving Floyd-Steinberg.
+  image to the fixed Tandy palette. Click **METHOD** to choose **Dithered
+  shading** (the default Floyd-Steinberg conversion) or **Solid colors**
+  (perceptual palette matching without dithering). Tab focuses the method;
+  Space, Enter or Left/Right changes it. Both preserve exact Tandy colors.
   PCX must be version 5, single-plane RLE: packed 4-bit with its 16-entry header
   palette, or 8-bit with its trailing 256-entry palette.
   PUT offers an image-number selector and uses its associated `.APF` or a
@@ -124,13 +127,20 @@ See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
   limits and conversion details.
 - **File > Save**: save the current image; an unnamed image gets a filename
   dialog. **File > Save As** chooses a new filename.
+- **File > Export PCX**: export the whole 64x64 image as an 8-bit indexed,
+  single-plane, version 5 RLE `.PCX`. The 256-entry palette contains PP16's
+  exact 16 RGBI colors in slots 0..15; unused slots are black. Even a solid
+  image is stored as 8-bit PCX. Export preserves the native filename,
+  unsaved state, undo, clipboard and view. Its chooser lists only `.PCX`
+  files and adds `.PCX` when the extension is omitted. With the normal
+  launcher, exported files appear in `out/medium`.
 - **Save As `NAME.CLP`**: save the current clipboard, including its dimensions
   and rectangle/ellipse shape. The document filename, unsaved edits and undo stay intact.
 - **File > Open**: choose a `.P16` image or `.CLP` clipboard. Loading a
   clip preserves the open image and view; use Ctrl+V or the clipboard tools to
   place it. Selecting a `.P16` while the image is dirty offers Cancel or Discard.
   Failed reads preserve the current image and clipboard.
-- Filename dialogs list both formats, accept DOS 8.3 names in the current
+- Native filename dialogs list both formats, accept DOS 8.3 names in the current
   directory and add `.P16` when the extension is omitted.
   Type a name, or choose a listed file. Tab changes fields; arrows/Page Up/Down
   navigate the list; Enter accepts and Escape cancels. Save As replacement

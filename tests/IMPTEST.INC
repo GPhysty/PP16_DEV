@@ -34,6 +34,18 @@ var Failures:Word; Before:DWord; R:Registers;
     Close(F);
   end;
 
+  procedure CheckRaw(const Name:String);
+  var F:File; Row:array[0..31] of Byte; X,Y:Integer;
+  begin
+    Assign(F,Name); Reset(F,1);
+    for Y:=0 to 63 do begin
+      BlockRead(F,Row,SizeOf(Row));
+      for X:=0 to 31 do Check((DocPixel(X*2,Y)=Row[X] shr 4) and
+        (DocPixel(X*2+1,Y)=(Row[X] and 15)),'UI method matches reference pixels');
+    end;
+    Close(F);
+  end;
+
 begin
   Failures:=0; InitUI; InitBlankDoc(0); CurrentFile:='OLD.P16';
   ForeColor:=GradientPaint; BackColor:=6; BrushSize:=3; SelectedTool:=7;
@@ -41,6 +53,7 @@ begin
   ClipboardCopy(0,0,1,1,False); DrawUI; Before:=DocChecksum;
   ChooseImport;
   Check((OpenMenu=9) and DialogImporting and not DialogSaving,'File Import dispatches to indexed chooser');
+  Check(DialogImportMethod=imDithered,'import starts with existing dithered method');
   HandleClick(210,155,1); Check(DocChecksum=Before,'import chooser blocks canvas');
   KeyInput(27,1,0); Check((OpenMenu=-1) and (DocChecksum=Before) and DocCanUndo and
     (CurrentFile='OLD.P16') and DocDirty,'cancel chooser preserves document state');
@@ -84,6 +97,23 @@ begin
   Check((OpenMenu=9) and DialogSaving and not DialogImporting,'Save after import asks for native filename');
   TypeName('UIIMPT'); KeyInput(13,28,0);
   Check((CurrentFile='UIIMPT.P16') and not DocDirty,'Save uses P16 without changing source');
+  Before:=DocChecksum;
+  ChooseImport; TypeName('GEN.PCX'); KeyInput(9,15,0); KeyInput(9,15,0);
+  KeyInput(13,28,0);
+  Check((OpenMenu=9) and (DialogImportMethod=imSolid) and (DocChecksum=Before),
+        'keyboard method selector changes method without importing');
+  Capture('METHOD.BIN'); KeyInput(9,15,0); KeyInput(13,28,0);
+  Check((OpenMenu=-1) and DocDirty and DocCanUndo,'solid PCX imports through keyboard selector');
+  CheckRaw('S01.RAW'); PaintIntact; KeyInput(26,0,0);
+  Check((DocChecksum=Before) and not DocDirty,'solid UI undo restores saved prior image');
+  ChooseImport;
+  Check(DialogImportMethod=imDithered,'new import restores dithered default');
+  HandleClick(190,106,1); HandleClick(110,59,1); TypeName('MULTI.PUT'); KeyInput(13,28,0);
+  Check((OpenMenu=9) and (DialogImportMethod=imSolid),'mouse method choice survives PUT settings');
+  HandleClick(241,77,1); KeyInput(13,28,0);
+  Check(OpenMenu=-1,'solid PUT imports selected image'); CheckRaw('S05.RAW'); PaintIntact;
+  KeyInput(26,0,0);
+  Check((DocChecksum=Before) and not DocDirty,'solid PUT undo restores previous image');
   ChooseImport; KeyInput(9,15,0); KeyInput(0,71,0); KeyInput(13,28,0);
   Check(OpenMenu=9,'keyboard import list opens PUT settings'); KeyInput(27,1,0);
   ChooseImport; TypeName('BIRDN.PCX'); KeyInput(13,28,0); PaintIntact;

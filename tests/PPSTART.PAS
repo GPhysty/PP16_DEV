@@ -48,11 +48,12 @@ begin
   Name:=ParamStr(2); if Name='' then Name:='PROD';
   StepCount:=0; StepIndex:=0; MouseReads:=0;
   MouseStep(4,3,0,1); MouseStep(4,3,1,1); MouseStep(4,3,0,1);
-  if ParamStr(1)='/SAVE' then I:=34 else I:=25;
+  if ParamStr(1)='/SAVE' then I:=34
+  else if ParamStr(1)='/EXPORT' then I:=61 else I:=25;
   MouseStep(15,I,0,1); MouseStep(15,I,1,1); MouseStep(15,I,0,1);
   MouseStep(15,I,0,Length(Name)+1);
   MouseStep(4,3,0,1); MouseStep(4,3,1,1); MouseStep(4,3,0,1);
-  MouseStep(15,61,0,1); MouseStep(15,61,1,1);
+  MouseStep(15,70,0,1); MouseStep(15,70,1,1);
   StepLeft:=Steps[0].Count;
   Tail:=$1E; MemW[$40:$1A]:=Tail;
   for I:=1 to 5 do Key(0,1);

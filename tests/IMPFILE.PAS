@@ -1,12 +1,12 @@
 program ImpFile;
 {$mode tp}{$H-}{$R+}{$Q+}{$M 8192,0,65536}
-uses Dos,TDoc,TFiles,TImport,TPaint,TClip;
+uses Dos,TDoc,TFiles,TImport,TPaint,TClip,TConvert;
 var Failures,Assertions:Word; Before,Expected,Actual:TDocPixels;
     ClipBefore,ClipAfter:TDocPixels; SavedDirty,SavedUndo:Boolean;
     OldName,Name,Pal,RawName,OutName:TFileName; List:Text;
     Selected,Count,W,H:Word; I,J,Code:Integer; S:String[12];
     F:File; N,Attributes:Word; CancelAt,Polls:Integer; InitialHeap:LongInt;
-    StartTick,EndTick:LongInt; Imported:Boolean;
+    StartTick,EndTick:LongInt; Imported:Boolean; Method:TImportMethod;
 const BadPCX:array[0..19] of TFileName=
  ('PCXVER.PCX','PCXBPP.PCX','PCXPLN.PCX','PCXENC.PCX','PCXWIDE.PCX','PCXHIGH.PCX',
   'PCXLINE.PCX','PCXXMIN.PCX','PCXZERO.PCX','PCXRUN.PCX','PCXTRUNC.PCX',
@@ -126,6 +126,30 @@ begin
       DocUndo; DocCopy(Actual);
       Check(CompareByte(Actual,Before,2048)=0,'import undo restores every previous pixel');
       Check((GradientFirst=1) and (GradientLast=14) and (GradientStep=3),'conversion leaves gradient unchanged');
+    end;
+    Close(List);
+    for J:=1 to 3 do begin
+      Capture; Polls:=0; CancelAt:=J;
+      Check(not ImportImageWithMethod('GEN.PCX',1,'',imSolid,CancelImport),'solid conversion cancellation'); Unchanged;
+    end;
+    Capture;
+    Check(not ImportImageWithMethod('P4RUN.PCX',1,'',imSolid,nil),'solid malformed packed input rejected'); Unchanged;
+    Assign(List,'SOLID.TXT'); Reset(List); ReadLn(List,S); Val(S,J,Code);
+    Check(Code=0,'solid case count'); Method:=imSolid;
+    for I:=1 to J do begin
+      ReadLn(List,Name); ReadLn(List,S); Val(S,Selected,Code);
+      ReadLn(List,Pal); ReadLn(List,RawName); ReadLn(List,OutName);
+      Capture; ReadExpected(RawName);
+      Check(ImportImageWithMethod(Name,Selected,Pal,Method,nil),'solid indexed image imports');
+      DocCopy(Actual);
+      Check(CompareByte(Actual,Expected,2048)=0,'solid pixels match independent floating-point CIELAB oracle');
+      if CompareByte(Actual,Expected,2048)<>0 then WriteLn('SOLID MISMATCH: ',Name);
+      Check(DocDirty and DocCanUndo and (CurrentFile=''),'solid import is unnamed, dirty and undoable');
+      Check(SaveImage(OutName,False),'solid import saves native P16');
+      DocUndo; DocCopy(Actual);
+      Check(CompareByte(Actual,Before,2048)=0,'solid undo restores every prior pixel');
+      ClipboardExport(ClipAfter);
+      Check(CompareByte(ClipBefore,ClipAfter,DocBytes)=0,'solid import preserves clipboard pixels');
     end;
     Close(List);
     Assign(F,'SMALL.PCX'); GetFAttr(F,Attributes); Check(DosError=0,'read source attributes');

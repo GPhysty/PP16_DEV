@@ -12,7 +12,7 @@ try {
     New-Item -ItemType Directory -Path $runDir | Out-Null
     Copy-Item -LiteralPath "$output/PP16.EXE","$output/PP16UI.P16" -Destination $runDir
     & ./build-checks.ps1 -MemoryModel $MemoryModel
-    foreach ($name in @('PPTVIDEO','PPTVIEW','PPTDRAW','PPTUNDO','PPTRESP','PPTFUI','PPTCLIP','PPTFILE','PPELLIP','PPSTART','PPTCLPF','PPGRAD','PPIMPF','PPIMPU')) {
+    foreach ($name in @('PPTVIDEO','PPTVIEW','PPTDRAW','PPTUNDO','PPTRESP','PPTFUI','PPTCLIP','PPTFILE','PPELLIP','PPSTART','PPTCLPF','PPGRAD','PPIMPF','PPIMPU','PPEXPF')) {
         Copy-Item -LiteralPath "$checksDir/$name.EXE" -Destination $runDir
     }
     & './tools/fpc-i8086/app/bin/i386-win32/ppcross8086.exe' '-n' '@hx8086.cfg' '-oMEMINFO.EXE' 'src/MEMINFO.PAS' 2>&1 |
@@ -30,7 +30,9 @@ $Settings
         "@echo off`r`nver set 3 30`r`n$Commands`r`nexit`r`n" | Set-Content -LiteralPath "$runDir/RUNTEST.BAT" -Encoding ASCII
         $arguments = '-nopromptfolder -conf dosbox-x.conf -conf ' + $cfg + ' -noautoexec -c "mount c ' + $runRel + '" -c "c:" -c RUNTEST.BAT -c exit'
         $p = Start-Process -FilePath $dosbox -ArgumentList $arguments -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -PassThru
-        $limit = (Get-Date).AddSeconds([Math]::Max(240, 240 * 3000 / $Cycles))
+        # The normal batch includes the PCX export dialog's verified round trips.
+        $seconds = if ($Name -eq 'normal') { 360 } else { 240 }
+        $limit = (Get-Date).AddSeconds([Math]::Max($seconds, $seconds * 3000 / $Cycles))
         while (-not $p.WaitForExit(1000)) {
             if ((Get-Date) -gt $limit) { $p.Kill(); throw "$Name timed out; reports retained in $runDir" }
         }
@@ -100,24 +102,32 @@ MEMINFO > AFTER.TXT
     if ($FileOnly -or -not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $ClipOnly -or $GradientOnly)) {
         & python -X utf8 tests/filefixtures.py $runDir
         if ($LASTEXITCODE -ne 0) { throw 'File fixture setup failed' }
+        & python -X utf8 tests/exportfixtures.py $runDir
+        if ($LASTEXITCODE -ne 0) { throw 'Export fixture setup failed' }
         # Exercise a host that offers LFNs; PP16 must still use DOS 8.3 APIs.
         Invoke-Profile 'files' "[dos]`nint33=true`nlfn=true" @'
 MEMINFO > FILEPRE.TXT
 PPSTART /SAVE > PRODSAVE.TXT
 PPSTART /OPEN > PRODOPEN.TXT
+PPSTART /EXPORT > PRODEXP.TXT
 PPTFILE /WRITE > FWRITE.TXT
 PPTFILE /READ > FREAD.TXT
 PPTFILE /CHECK > FCHECK.TXT
+PPEXPF > EXPORT.TXT
 CD BLOCKED
 C:\PPTFILE.EXE /BLOCKED > BLOCKED.TXT
+C:\PPEXPF.EXE /BLOCKED > BLOCKEXP.TXT
 CD ..
 MEMINFO > FILEPOST.TXT
 '@
         $checks += @(@('FWRITE.TXT','M6 FILE CHECKS PASSED'), @('FREAD.TXT','M6 FILE CHECKS PASSED'), @('FCHECK.TXT','M6 FILE CHECKS PASSED'), @('BLOCKED/BLOCKED.TXT','M6 FILE CHECKS PASSED'))
         $checks += @(@('PRODSAVE.TXT','PRODUCTION SESSION PASSED'), @('PRODOPEN.TXT','PRODUCTION SESSION PASSED'))
+        $checks += @(@('PRODEXP.TXT','PRODUCTION SESSION PASSED'), @('EXPORT.TXT','PCX EXPORT CHECKS PASSED'), @('BLOCKED/BLOCKEXP.TXT','PCX EXPORT CHECKS PASSED'))
         if ((Get-Content "$runDir/FILEPRE.TXT" -Raw) -ne (Get-Content "$runDir/FILEPOST.TXT" -Raw)) { throw 'File tests changed DOS memory chain.' }
         & python -X utf8 tests/filefixtures.py $runDir verify
         if ($LASTEXITCODE -ne 0) { throw 'Independent file verification failed' }
+        & python -X utf8 tests/exportfixtures.py $runDir verify
+        if ($LASTEXITCODE -ne 0) { throw 'Independent PCX export verification failed' }
     }
     if ($FileOnly -or $ClipOnly -or -not ($ImportOnly -or $UndoOnly -or $PerfOnly -or $ResponseOnly -or $GradientOnly)) {
         & python -X utf8 tests/clpfixtures.py $runDir
@@ -140,6 +150,8 @@ MEMINFO > FILEPOST.TXT
         if ($LASTEXITCODE -ne 0) { throw 'Imported image framebuffer checks failed' }
         & python -X utf8 tests/framecheck.py "$runDir/IMPORTUI.BIN" "$runDir/IMPORTUI.PNG" import
         if ($LASTEXITCODE -ne 0) { throw 'Import dialog framebuffer checks failed' }
+        & python -X utf8 tests/framecheck.py "$runDir/METHOD.BIN" "$runDir/METHOD.PNG" method
+        if ($LASTEXITCODE -ne 0) { throw 'Import method framebuffer checks failed' }
     }
     foreach ($pair in $checks) {
         $report = Get-Content -LiteralPath (Join-Path $runDir $pair[0]) -Raw

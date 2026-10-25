@@ -28,6 +28,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'File harness build failed' }
     & $compiler '-n' "@$config" "-FU$fileUnits" "-FE$checks" '-dPP16_FILE_TEST' '-oPPTCLPF.EXE' 'tests/CLPFILE.PAS'
     if ($LASTEXITCODE -ne 0) { throw 'CLP file harness build failed' }
+    & $compiler '-n' "@$config" "-FU$fileUnits" "-FE$checks" '-dPP16_FILE_TEST' '-oPPEXPF.EXE' 'tests/PCXFILE.PAS'
+    if ($LASTEXITCODE -ne 0) { throw 'PCX export harness build failed' }
     & $compiler '-n' "@$config" "-FU$checks" "-FE$checks" '-oPPSTART.EXE' 'tests/PPSTART.PAS'
     if ($LASTEXITCODE -ne 0) { throw 'Production launch driver build failed' }
     $gradientUnits = "$checks/GRADIENT"
