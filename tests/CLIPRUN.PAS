@@ -1,7 +1,7 @@
 program ClipRun;
 {$mode tp}{$H-}{$R+}{$Q+}{$M 8192,0,65536}
 uses VMem,TVideo,TMouse,TCursor,TUI;
-var PreviousExit:NearCsPointer; Failures:Word;
+var PreviousExit:CodePointer; Failures:Word;
 procedure CleanExit;
 begin
   ExitProc:=PreviousExit;

@@ -1,7 +1,7 @@
 unit TFiles;
 {$mode tp}{$H-}{$R+}{$Q+}
 interface
-uses TDoc;
+uses TDoc,TImport,TConvert;
 type TFileName=String[12];
 var CurrentFile:TFileName;
     {Type of the latest normalized I/O request; CurrentFile remains the document.}
@@ -9,11 +9,19 @@ var CurrentFile:TFileName;
     FileError:String[48]; RecoveryPath:String[64];
 {$ifdef PP16_FILE_TEST}var FileFault:Byte;{$endif}
 function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+function NormalizeImportName(const Input:String; var Name:TFileName):Boolean;
+function NormalizeExportName(const Input:String; var Name:TFileName):Boolean;
+function NormalizePaletteName(const Input:String; var Name:TFileName):Boolean;
 function ClipName(const Name:String):Boolean;
 function Exists(const Name:String):Boolean;
 function LoadImage(const Name:TFileName):Boolean;
+function ImportImage(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Cancel:TImportCancel):Boolean;
+function ImportImageWithMethod(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Method:TImportMethod; Cancel:TImportCancel):Boolean;
 function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
 {Both entry points dispatch by extension. CLP never changes document state.}
+function ExportPCX(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
 implementation
 uses Dos,TClip;
 type THeader=array[0..19] of Byte;
@@ -29,10 +37,16 @@ begin
   if Code<>0 then begin Str(Code,S); FileError:=Message+' (DOS '+S+')' end;
 end;
 
-function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+function NormalizeKind(const Input:String; var Name:TFileName; Kind:Byte):Boolean;
 var S,B:String[12]; I,P:Integer;
 begin
-  NormalizeName:=False; FileError:='USE 8.3 NAME WITH .P16 OR .CLP';
+  NormalizeKind:=False;
+  case Kind of
+    0:FileError:='USE 8.3 NAME WITH .P16 OR .CLP';
+    1:FileError:='USE 8.3 NAME WITH .PCX OR .PUT';
+    2:FileError:='USE 8.3 NAME WITH .APF OR .PAL';
+    3:FileError:='USE 8.3 NAME WITH .PCX';
+  end;
   if (Length(Input)=0) or (Length(Input)>12) then Exit;
   S:=Input; P:=0;
   for I:=1 to Length(S) do begin
@@ -40,15 +54,32 @@ begin
     if S[I]='.' then begin if P<>0 then Exit; P:=I end
     else if not (S[I] in ['A'..'Z','0'..'9','_','-']) then Exit;
   end;
-  if P=0 then begin if Length(S)>8 then Exit; S:=S+'.P16'; P:=Length(S)-3 end;
+  if P=0 then begin
+    if (Length(S)>8) or (Kind=2) then Exit;
+    if Kind=0 then S:=S+'.P16' else S:=S+'.PCX'; P:=Length(S)-3;
+  end;
   if (P<2) or (P>9) or (Length(S)<>P+3) then Exit;
-  if (Copy(S,P,4)<>'.P16') and not ClipName(S) then Exit;
+  case Kind of
+    0:if (Copy(S,P,4)<>'.P16') and not ClipName(S) then Exit;
+    1:if (Copy(S,P,4)<>'.PCX') and (Copy(S,P,4)<>'.PUT') then Exit;
+    2:if (Copy(S,P,4)<>'.APF') and (Copy(S,P,4)<>'.PAL') then Exit;
+    3:if Copy(S,P,4)<>'.PCX' then Exit;
+  end;
   B:=Copy(S,1,P-1);
   if (B='CON') or (B='PRN') or (B='AUX') or (B='NUL') then Exit;
   if (Length(B)=4) and (B[4] in ['1'..'9']) and
      ((Copy(B,1,3)='COM') or (Copy(B,1,3)='LPT')) then Exit;
-  Name:=S; FileError:=''; NormalizeName:=True;
+  Name:=S; FileError:=''; NormalizeKind:=True;
 end;
+
+function NormalizeName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizeName:=NormalizeKind(Input,Name,0) end;
+function NormalizeImportName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizeImportName:=NormalizeKind(Input,Name,1) end;
+function NormalizeExportName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizeExportName:=NormalizeKind(Input,Name,3) end;
+function NormalizePaletteName(const Input:String; var Name:TFileName):Boolean;
+begin NormalizePaletteName:=NormalizeKind(Input,Name,2) end;
 
 function Exists(const Name:String):Boolean;
 var S:SearchRec;
@@ -119,6 +150,25 @@ begin
   LoadImage:=True;
 end;
 
+function ImportImageWithMethod(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Method:TImportMethod; Cancel:TImportCancel):Boolean;
+var Valid:TFileName;
+begin
+  ImportImageWithMethod:=False; FileError:='';
+  if not NormalizeImportName(Name,Valid) then Exit;
+  if not ReadImportedWithMethod(Valid,PaletteName,ImageNo,Stage,Method,Cancel) then begin
+    FileError:=ImportError; Exit;
+  end;
+  if not DocImport(Stage) then begin FileError:='FINISH CURRENT DRAWING ACTION FIRST'; Exit end;
+  CurrentFile:=''; FileIsClip:=False; RecoveryPath:=''; ImportImageWithMethod:=True;
+end;
+
+function ImportImage(const Name:TFileName; ImageNo:Word; const PaletteName:String;
+                     Cancel:TImportCancel):Boolean;
+begin
+  ImportImage:=ImportImageWithMethod(Name,ImageNo,PaletteName,imDithered,Cancel);
+end;
+
 function Directory(const Name:String):Boolean;
 var S:SearchRec; E:Word;
 begin
@@ -160,18 +210,93 @@ begin
   Assign(F,OldName); {$I-} Rename(F,NewName); RenameFile:=IOResult; {$I+}
 end;
 
-function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
+function WritePCX(var F:File):Boolean;
+const Palette:array[0..15,0..2] of Byte=(
+  (0,0,0),(0,0,170),(0,170,0),(0,170,170),
+  (170,0,0),(170,0,170),(170,85,0),(170,170,170),
+  (85,85,85),(85,85,255),(85,255,85),(85,255,255),
+  (255,85,85),(255,85,255),(255,255,85),(255,255,255));
+var Buffer:array[0..768] of Byte; X,Y,Run,Used:Integer; Color:Byte;
+
+  function Pixel(P:Integer):Byte;
+  begin
+    if Odd(P) then Pixel:=Stage[Y*32+(P shr 1)] and 15
+    else Pixel:=Stage[Y*32+(P shr 1)] shr 4;
+  end;
+
+  function WriteBlock(Count:Word):Boolean;
+  var N,E:Word;
+  begin
+    {$I-} BlockWrite(F,Buffer,Count,N); E:=IOResult; {$I+}
+    WriteBlock:=(E=0) and (N=Count);
+    if (E<>0) or (N<>Count) then Error('PCX WRITE FAILED',E);
+  end;
+
+begin
+  WritePCX:=False; FillChar(Buffer,SizeOf(Buffer),0);
+  Buffer[0]:=10; Buffer[1]:=5; Buffer[2]:=1; Buffer[3]:=8;
+  Buffer[8]:=63; Buffer[10]:=63; Buffer[12]:=72; Buffer[14]:=72;
+  Move(Palette,Buffer[16],SizeOf(Palette));
+  Buffer[65]:=1; Buffer[66]:=64; Buffer[68]:=1;
+  if not WriteBlock(128) then Exit;
+  for Y:=0 to 63 do begin
+    X:=0; Used:=0;
+    while X<64 do begin
+      Color:=Pixel(X); Run:=1;
+      while (Run<63) and (X+Run<64) do begin
+        if Pixel(X+Run)<>Color then Break;
+        Inc(Run);
+      end;
+      if Run>1 then begin Buffer[Used]:=$C0 or Byte(Run); Inc(Used) end;
+      {Document indices are 0..15, so single bytes cannot be RLE markers.}
+      Buffer[Used]:=Color; Inc(Used); Inc(X,Run);
+    end;
+    if not WriteBlock(Used) then Exit;
+    {$ifdef PP16_FILE_TEST}
+    if FileFault=1 then begin Error('INJECTED PCX WRITE FAILURE',0); Exit end;
+    {$endif}
+  end;
+  FillChar(Buffer,SizeOf(Buffer),0); Buffer[0]:=12;
+  Move(Palette,Buffer[1],SizeOf(Palette));
+  WritePCX:=WriteBlock(769);
+end;
+
+function VerifyPCX(const Name:String):Boolean;
+var X,Y:Integer; Expected:Byte;
+begin
+  VerifyPCX:=False;
+  {Reuse the existing staging buffer. The document stays unchanged throughout
+   export; another 2 KiB pixel array here would crowd the 8 KiB DOS stack.}
+  if not ReadImported(Name,'',1,Stage,nil) then begin
+    Error('EXPORTED PCX DID NOT VERIFY',0); Exit;
+  end;
+  for Y:=0 to 63 do for X:=0 to 31 do begin
+    Expected:=(DocPixel(X*2,Y) shl 4) or DocPixel(X*2+1,Y);
+    if Stage[Y*32+X]<>Expected then begin
+      Error('EXPORTED PIXELS DID NOT VERIFY',0); Exit;
+    end;
+  end;
+  VerifyPCX:=True;
+end;
+
+function WriteImage(const Name:TFileName; ReplaceExisting,Exporting:Boolean):Boolean;
 var Valid:TFileName; TempName,BackupName:String[80]; F:File;
     E,N,Count,CloseError:Word; OldExists,OK:Boolean; S:SearchRec;
 begin
-  SaveImage:=False; FileError:=''; RecoveryPath:='';
-  if not NormalizeName(Name,Valid) then Exit;
-  FileIsClip:=ClipName(Valid);
-  if FileIsClip then begin
+  WriteImage:=False; FileError:=''; RecoveryPath:='';
+  if Exporting then begin
+    if not NormalizeExportName(Name,Valid) then Exit;
+  end else begin
+    if not NormalizeName(Name,Valid) then Exit;
+    FileIsClip:=ClipName(Valid);
+  end;
+  if not Exporting and FileIsClip then begin
     if not ClipboardValid then begin Error('CLIPBOARD IS EMPTY',0); Exit end;
     ClipboardExport(Stage);
     MakeHeader(ClipboardWidth,ClipboardHeight,Ord(ClipboardEllipse));
-  end else begin DocCopy(Stage); MakeHeader(64,64,0) end;
+  end else begin
+    DocCopy(Stage); if not Exporting then MakeHeader(64,64,0);
+  end;
   FindFirst(Valid,AnyFile,S); OldExists:=DosError=0;
   if OldExists then begin
     if not ReplaceExisting then begin Error('FILE EXISTS - CONFIRM REPLACE',0); Exit end;
@@ -179,12 +304,19 @@ begin
   end;
   if not NewSaveFolder then Exit;
   TempName:=RecoveryPath+'\NEW.TMP'; BackupName:=RecoveryPath+'\'+Valid;
+  if Exporting then begin
+    TempName:=RecoveryPath+'\NEW.PCX';
+    if Valid='NEW.PCX' then TempName:=RecoveryPath+'\NEXT.PCX';
+  end;
   Assign(F,TempName);
   {$I-} Rewrite(F,1); E:=IOResult; {$I+}
   if E<>0 then begin Error('CANNOT CREATE TEMP FILE',E); Exit end;
-  {$I-} BlockWrite(F,StageHeader,SizeOf(StageHeader),N); E:=IOResult; {$I+}
-  OK:=(E=0) and (N=SizeOf(StageHeader));
-  if OK then begin
+  if Exporting then begin OK:=WritePCX(F); E:=0 end
+  else begin
+    {$I-} BlockWrite(F,StageHeader,SizeOf(StageHeader),N); E:=IOResult; {$I+}
+    OK:=(E=0) and (N=SizeOf(StageHeader));
+  end;
+  if OK and not Exporting then begin
     Count:=StageBytes;
     {$ifdef PP16_FILE_TEST}if FileFault=1 then Count:=StageBytes div 2;{$endif}
     {$I-} BlockWrite(F,Stage,Count,N); E:=IOResult; {$I+}
@@ -195,7 +327,8 @@ begin
     if E=0 then E:=CloseError;
     Error('SAVE WRITE OR CLOSE FAILED',E); Exit;
   end;
-  if not ReadImage(TempName,True) then Exit;
+  if Exporting then begin if not VerifyPCX(TempName) then Exit end
+  else if not ReadImage(TempName,True) then Exit;
   if OldExists then begin
     E:=RenameFile(Valid,BackupName);
     if E<>0 then begin Error('CANNOT PRESERVE OLD FILE',E); Exit end;
@@ -215,9 +348,15 @@ begin
     end;
     Exit;
   end;
-  if not FileIsClip then begin CurrentFile:=Valid; DocSaved end;
-  SaveImage:=True;
+  if not Exporting and not FileIsClip then begin CurrentFile:=Valid; DocSaved end;
+  WriteImage:=True;
 end;
+
+function SaveImage(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
+begin SaveImage:=WriteImage(Name,ReplaceExisting,False) end;
+
+function ExportPCX(const Name:TFileName; ReplaceExisting:Boolean):Boolean;
+begin ExportPCX:=WriteImage(Name,ReplaceExisting,True) end;
 begin
   {PP16 accepts DOS 3.3 / 8.3 names only. Keep all runtime file operations on
    that API even when the host offers LFNs. The shipped i8086-small RTL's LFN

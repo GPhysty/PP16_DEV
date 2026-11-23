@@ -13,6 +13,10 @@ selection; it does not undo a foreground-color choice.
 
 Action > Clear (Alt+C) fills with black. Clear to Colour fills with the foreground
 color. Each is one undoable action; an already-uniform fill preserves undo.
+Both commands scan packed bytes for an actual change, capture the previous
+image once, and fill the 2,048-byte document buffer in bulk. Changed clears
+mark the entire image for packed scanline redraw of the canvas and preview,
+including when only a small part of the image differed from the clear color.
 File > New creates a blank black 64x64 document and resets view and undo.
 Foreground/background and tool selection are retained. A new untouched blank
 document is clean; drawing makes it dirty. Startup still shows the demo fixture.

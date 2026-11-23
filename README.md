@@ -16,10 +16,43 @@ not contain its unavailable editor source or supplied artwork.  See the
 [plain-text PP16 user guide](PP16.DOC) for the release-style manual and
 [credits](docs/CREDITS.md) for the full reference notices.
 
-The project stays within 8086 small-model limits and uses only conventional
-memory at runtime.  It needs no GRAFIX TSR, ADJMEM, EMS or XMS.  PP16 is built
+The 1.0 release uses the 8086 small memory model. Version 1.1 development uses
+Medium to accommodate gradient/dither painting. Both use only conventional
+memory at runtime.  PP16 needs no GRAFIX TSR, ADJMEM, EMS or XMS.  It is built
 with Free Pascal and its UI is designed for mouse-driven pixel work on original
 hardware as well as the included DOSBox-X workflow.
+
+## Install PP16 1.0 - no compiler needed
+
+The ready-to-run distribution is [dist/PP16V10.ZIP](dist/PP16V10.ZIP).
+Its unpacked files are available in [dist/PP16V10/](dist/PP16V10/), with
+[installation instructions](dist/PP16V10/README.TXT),
+[quick help](dist/PP16V10/HELP.TXT), and the complete
+[user manual](dist/PP16V10/PP16.DOC).
+
+Extract the ZIP, change into its directory under DOS, and run `INSTALL`.
+The default destination is `C:\PP16`; `INSTALL D:\PP16` selects another
+DOS 8.3 path. The installer preserves existing files and needs only standard
+DOS commands. PP16 targets the Tandy 1000HX with 640 KiB RAM and a mouse driver;
+it is a 16-bit DOS application. Modern Windows requires suitable emulation.
+
+See the [distribution record](dist/README.md) for contents, checksums and
+validation. Version 1.0 includes the packed-buffer Clear improvements.
+Gradient/dither painting is available in the version 1.1 development build.
+
+The `v1.1` development branch implements the permanent gradient selector
+beneath the compact palette. Click an endpoint box, then a palette colour to
+set it. Click the ramp to select 0-100% of the right-hand colour in exact 10%
+steps. The foreground swatch shows the active pattern and percentage. Brush,
+Line, Circle, Square, Bucket Fill and Clear to Colour use it. An ordinary
+palette click or canvas eyedropper selects solid paint again; Escape cancels
+endpoint selection. Right-clicking the palette still sets the solid background.
+Tab from gradient paint selects that background as the solid foreground.
+The packaged 1.0 editor remains the stable distribution.
+
+See [gradient behavior and validation](docs/GRADIENT-DITHER.md),
+[development scope](docs/V1.1-PLAN.md), and
+[Medium runtime setup](docs/MEDIUM-MODEL.md).
 
 ## Current editor capabilities
 
@@ -29,8 +62,13 @@ hardware as well as the included DOSBox-X workflow.
   undoable action. The currently selected drawing tool does not change.
 - **Circle, Square, Line** (bottom row, second through fourth icons): drag with
   the foreground color. Circle starts at its centre; Square starts at its first
-  corner. Their live canvas outline previews the result before release. Each
-  completed shape is one undoable action; Escape cancels it.
+  corner. A one-screen-pixel dashed gray guide shows the position while dragging.
+  Release applies the selected color, dither pattern and thickness as one
+  undoable action; Escape removes the guide without drawing.
+  **Right-click Circle or Square** to toggle its filled mode. The tool label
+  shows **FILLED CIRCLE** or **FILLED SQUARE**. The primary paint draws the border
+  at the selected thickness; the secondary color fills the interior, including
+  black. Each tool remembers its mode for the session.
 - **Size selector** (below the tool icons): use its - / + buttons to choose a
   shared 1–5 px square brush for Brush, Circle, Square and Line.
 - **Bucket Fill** (top row, third icon): left-click a connected area to replace
@@ -73,15 +111,36 @@ hardware as well as the included DOSBox-X workflow.
 - **File > New**: start a blank black image. **File > Exit** exits.
   If there are unsaved changes, choose **Cancel** or **Discard**. Cancel is the
   default; Tab changes the choice and Enter accepts it. Escape cancels the prompt.
+- **File > Import**: convert a prepared indexed `.PCX` or PIXELplus 256 `.PUT`
+  image to the fixed Tandy palette. Click **METHOD** to choose **Dithered
+  shading** (the default Floyd-Steinberg conversion) or **Solid colors**
+  (perceptual palette matching without dithering). Tab focuses the method;
+  Space, Enter or Left/Right changes it. Both preserve exact Tandy colors.
+  PCX must be version 5, single-plane RLE: packed 4-bit with its 16-entry header
+  palette, or 8-bit with its trailing 256-entry palette.
+  PUT offers an image-number selector and uses its associated `.APF` or a
+  supplied `.PAL`; a missing palette is never silently substituted. Selected
+  images must be at most 64x64. Smaller images go at the top left with black
+  padding. Import is one undoable action and becomes an unnamed, unsaved image;
+  Save asks for a native `.P16` filename. Escape cancels conversion. See the
+  [import guide and validation record](docs/IMPORT.md) for palette locations,
+  limits and conversion details.
 - **File > Save**: save the current image; an unnamed image gets a filename
   dialog. **File > Save As** chooses a new filename.
+- **File > Export PCX**: export the whole 64x64 image as an 8-bit indexed,
+  single-plane, version 5 RLE `.PCX`. The 256-entry palette contains PP16's
+  exact 16 RGBI colors in slots 0..15; unused slots are black. Even a solid
+  image is stored as 8-bit PCX. Export preserves the native filename,
+  unsaved state, undo, clipboard and view. Its chooser lists only `.PCX`
+  files and adds `.PCX` when the extension is omitted. With the normal
+  launcher, exported files appear in `out/medium`.
 - **Save As `NAME.CLP`**: save the current clipboard, including its dimensions
   and rectangle/ellipse shape. The document filename, unsaved edits and undo stay intact.
 - **File > Open**: choose a `.P16` image or `.CLP` clipboard. Loading a
   clip preserves the open image and view; use Ctrl+V or the clipboard tools to
   place it. Selecting a `.P16` while the image is dirty offers Cancel or Discard.
   Failed reads preserve the current image and clipboard.
-- Filename dialogs list both formats, accept DOS 8.3 names in the current
+- Native filename dialogs list both formats, accept DOS 8.3 names in the current
   directory and add `.P16` when the extension is omitted.
   Type a name, or choose a listed file. Tab changes fields; arrows/Page Up/Down
   navigate the list; Enter accepts and Escape cancels. Save As replacement
@@ -106,22 +165,36 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\check-pp16.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-pp16.ps1
 ```
 
+On `v1.1` these commands default to Medium. First prepare its matching FPC
+3.2.2 runtime using [these instructions](docs/MEDIUM-MODEL.md) if needed.
+The executable and atlas are in `out/medium/`. The upgraded editor exceeds
+Small's code limit; use the frozen 1.0 distribution for that build.
+Pass `-GradientOnly -Cycles 3000` to the check script for focused gradient
+checks; the normal full run includes them too.
+Use `-ImportOnly -Cycles 3000` for the importer checks, also included in the
+full run. These independently compare converted pixels and exercise malformed
+files, palette lookup, cancellation, undo, Save and the File-menu flow.
+
 With **PP16_DEV opened as the VS Code workspace**, Ctrl+Shift+B builds PP16.
 The `PP16: Build and run editor` task opens a visible emulator.
+Its interactive profile enables aspect correction, Normal 4x scaling and the
+included [CRT-Geom shader](config/shaders/README.md). These settings take effect
+on the next launch through `run-pp16.ps1`.
 The existing watch-log task follows `obj/monitor.log`. PP16 checks keep separate
 reports under `obj/pp16-*`, preserving previous runs. The default check uses
 3,000 cycles/ms to finish quickly; the interactive profile uses 750.
 Pass `-UndoOnly -Cycles 750` for focused M5 checks or `-FileOnly -Cycles 750`
-for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests now live in separate DOS harnesses under `obj/checks`, built by
+for M6, or `-ClipOnly -Cycles 750` for focused M9 checks. Tests live in separate DOS harnesses under `obj/medium-checks`, built by
 `build-checks.ps1`; focused clipboard UI, file, and ellipse harnesses keep test
-code separate from the editor's 64 KB code segment. The production EXE no longer embeds `/TEST`, `/PERF`,
+code separate from the production editor. The production EXE no longer embeds `/TEST`, `/PERF`,
 `/UNDOTEST` or the legacy demos; the check script selects the correct harness.
 
-`out/PP16.EXE` is the current program; `out/M9.EXE` preserves the accepted
+`out/medium/PP16.EXE` is the current development program; `out/PP16.EXE`
+retains the pre-gradient Small build. `out/M9.EXE` preserves the accepted
 optimized M9 checkpoint; `out/M4.EXE` preserves the previous
 drawing checkpoint; `out/M1.EXE` preserves the passing M1
 checkpoint and `out/HXTEST.EXE` preserves the original smoke test. On the HX,
-copy PP16.EXE and run `PP16` with a mouse driver already loaded. No GRAFIX TSR
+copy PP16.EXE and PP16UI.P16 together and run `PP16` with a mouse driver already loaded. No GRAFIX TSR
 or ADJMEM command is required: PP16 reserves the needed portion of the video
 page through DOS, or accepts an existing 32 KiB reservation. It refuses to
 overwrite an existing allocation. `out/M1.EXE` retains the keyboard-only demo.

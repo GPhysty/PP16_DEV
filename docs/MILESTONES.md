@@ -61,9 +61,6 @@ Future controls must own their drag from initial press to release, consume
 palette/dialog clicks, and cancel previews on Escape. No paint or GUI work
 has been started. PicoMEM EMS/XMS support is recorded as optional future memory.
 
-
-
-
 ## M3 - reference-style interface and view
 
 User accepted M2's mouse demonstration and supplied PP256 layout, dropdown
@@ -346,3 +343,83 @@ harness checks all four Image and Clipboard frame edges at 1x, 4x and 8x. The
 full M1-M9 regression passed at 3,000 cycles/ms in
 `obj/pp16-20260927-201235-639031`. Production build: 67,478 bytes (60,604 code
 bytes and 6,772 initialized-data bytes), leaving 4,932 code bytes.
+
+## PP16 1.0 distribution checkpoint - 2026-10-23
+
+The accepted editor, including packed-buffer Clear and Clear to Colour, is
+packaged for end users in `dist/PP16V10/` and `dist/PP16V10.ZIP`. The package
+includes the required toolbar atlas, a DOS batch installer, user manual,
+quick help, installation instructions, credit/runtime notices and checksums.
+See [the distribution record](../dist/README.md) for source provenance and
+validation. The production EXE and atlas match the full passing regression
+from `obj/pp16-20261022-231640-28f570`; isolated installer checks and installed
+editor Save/Open passed in `obj/dist-1.0-20261023-5aa6eba2`.
+
+Version 1.1 is the next development line for gradient/dither paint. Neither
+that feature nor a memory-model migration is part of the 1.0 distribution.
+
+## PP16 1.1 Medium compatibility checkpoint - 2026-10-23
+
+Before adding gradient/dither paint, an isolated `-WmMedium` build of the
+existing editor was added. FPC 3.2.2 Medium runtime units were built from the
+matching release sources; exit hooks use model-dependent `CodePointer`.
+Build/check/run scripts accept `-MemoryModel Medium`; Small remains the
+default and the frozen 1.0 distribution is unchanged.
+
+The Medium production build contains 67,804 linked code bytes in multiple
+segments, 4,456 initialized-data bytes and a 7,662-byte initial near heap.
+Focused clipboard/ellipse/file checks passed in
+`obj/pp16-medium-20261023-023323-85e779`; the full regression, production
+Save/Open and exact DOS memory restoration passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-023447-68d547`. All nine full-regression framebuffer
+dumps match the Small baseline. Rebuilding Small produces the exact 1.0
+executable bytes. See [the trial record](MEDIUM-MODEL.md) for setup and results.
+Physical HX and interactive acceptance remain outstanding. Gradient painting
+is not implemented by this checkpoint.
+
+## PP16 1.1 gradient/dither checkpoint - 2026-10-23
+
+The permanent two-endpoint dither selector is implemented beneath a compact
+palette, with exact 10% steps and an active-pattern foreground swatch. Brush,
+Line, Circle, Square, Bucket Fill and Clear to Colour share the image-anchored
+paint resolver. Fill uses a visited bitmap; gradient clears use packed rows
+and retain solid clear speed, no-op behavior and undo. Literal clipboard and
+file pixels remain unchanged. Medium is now the development default; 1.0's
+Small installation payload is preserved. The user approved the rendered layout.
+
+Focused gradient validation passed with 838,208 assertions in
+`obj/pp16-medium-20261023-035655-c12485`. After the selector redraw optimization,
+the complete regression included 838,210 gradient assertions. Production
+Save/Open, independent gradient/native/clipboard file verification and DOS
+memory restoration passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-041244-43a210`. Production code is 70,882 bytes;
+initialized data is 4,564 bytes; startup near heap is 6,650 bytes. See
+[gradient behavior and evidence](GRADIENT-DITHER.md). Physical HX validation
+remains outstanding.
+
+## PP16 1.1 indexed import checkpoint - 2026-10-23
+
+File > Import now reads version-5, 8-bit single-plane RLE PCX and PP256 PUT
+images with associated APF or explicit PAL palettes. PUT has an image-number
+selector, validates integer record alignment and supports sibling PALETTES
+lookup. Selected images must fit 64x64; smaller images are placed at the top
+left with black padding. The selected exact-color-preserving, neutral-aware
+fixed-point Floyd-Steinberg conversion emits literal packed Tandy indexes.
+The existing file stage is committed by TDOC.DocImport as one undoable action;
+success is unnamed/unsaved, while cancellation/failure preserves prior state.
+The 2,612-byte temporary converter context uses the existing stack instead of
+permanent near data. No compiler/runtime, DOSBox setting or 1.0 package changed.
+
+Focused checks passed in `obj/pp16-medium-20261023-141749-78ecee`. The final
+Medium build and full regression passed at 3,000 cycles/ms in
+`obj/pp16-medium-20261023-142217-bfda07`: 17 scalar-oracle conversions, 323
+import assertions plus sibling-palette/UI checks, 838,210 gradient assertions,
+39,244 ellipse checks, native/clipboard files and recovery, production
+Save/Open, and exact DOS memory restoration. Import heap does not grow; stack
+watermarks retain over 3 KiB untouched on tested file and UI paths.
+
+Production linked code is 82,653 bytes; initialized data is 6,358 bytes;
+DGROUP including stack is 61,344 bytes; recorded startup near heap is 4,198
+bytes. Bird imports take about 6.9 seconds in this emulator's 3,000-cycle
+configuration. See [the import guide and resource record](IMPORT.md).
+User visual acceptance and physical HX verification remain separate.

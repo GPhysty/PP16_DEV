@@ -1,0 +1,399 @@
+PP16 is a compact sprite-frame editor written for 16-colour Tandy graphics.
+It is intended for work on one 64 by 64 pixel image at a time, with the
+tools needed to draw, select, move, save and reopen that image reliably.
+
+The Tandy 1000HX is PP16's targeted system to develop graphics for.  The editor is a new 2026
+implementation: it is not a port of PIXELplus 256, and it does not contain
+PIXELplus 256 editor source or supplied graphics.
+
+                         ***  PP16 User Information  ***
+
+                               PP16 1.0 - 2026 Edition
+                       Copyright (C) 2026 Bartholomew Harner
+                                 All rights reserved.
+
+PP16 was designed and developed by Bartholomew Harner, with implementation
+assistance from the OpenAI Codex AI assistant.
+
+PIXELplus 256 by Chris Chadwick is acknowledged as a workflow and behaviour
+reference.  It is not PP16 source code.  See section 10 for the complete
+credit and reference notice.
+
+PP16 saves important work carefully, but no software can protect against every
+possible hardware, power or media failure.  Keep copies of work that matters.
+
+-----------------------------------------------------------------------------
+
+                               CONTENTS
+
+ 1)  Overview
+ 2)  PP16 Features
+ 3)  System Requirements
+ 4)  Files and Directories
+ 5)  PP16 Native File Formats
+ 6)  Starting PP16
+ 7)  The PP16 Screen
+ 8)  Drawing, Selection and Clipboard Controls
+ 9)  Saving, Opening and Recovery
+10)  Credits and Reference Notice
+
+
+--------------
+ 1 - Overview
+--------------
+
+PP16 is a fixed-frame pixel editor for making 64 by 64 pixel, 16-colour
+sprite artwork.  A compact 320 by 200 Tandy graphics interface provides a
+zoomed drawing canvas, an actual-size image preview, a palette, a clipboard
+preview and the controls needed for precise pixel work.
+
+The document is deliberately one frame and one size.  This keeps the editor
+small enough for real-mode DOS while leaving a clear, direct workflow:
+
+  1) Draw or edit the current 64 by 64 image.
+  2) Use the selection and clipboard tools to reuse part of it.
+  3) Save the finished frame as a native .P16 file.
+
+PP16 uses the standard fixed Tandy 16-colour palette.  It does not provide
+animation, a screen designer, variable-size images, palette editing or
+image-wide special effects.  Those omissions are intentional: PP16 focuses
+on consistent hand-edited sprite frames.
+
+
+-------------------
+ 2 - PP16 Features
+-------------------
+
+PP16 includes the following features:
+
+ * A fixed 64 by 64 pixel, 16-colour image using the standard Tandy palette.
+
+ * A zoomed edit canvas at 2x, 4x or 8x, with an optional grid and a separate
+   actual-size image preview.
+
+ * Brush, bucket fill, line, circle and square drawing tools.  Brush size is
+   shared by the brush and shape tools and can be set from 1 to 5 pixels.
+
+ * Rectangle and ellipse selection, with optional Ctrl-constrained squares
+   and circles.
+
+ * A fixed-memory clipboard that can Copy, Cut, Paste, mirror, rotate and
+   scale rectangular or elliptical selections.  Black is an ordinary opaque
+   colour; it is never silently treated as transparent.
+
+ * One completed-action Undo.  A stroke, shape, Cut, Paste or Clear action is
+   undone as one operation.  Escape cancels an unfinished stroke or shape.
+
+ * Native .P16 image files and .CLP clipboard files, each checked fully before
+   loading.  Saves are written, reopened and verified before replacement.
+
+ * DOS 8.3 filename dialogs, recoverable overwrite handling and retained
+   backups under the TRASH directory.
+
+ * Keyboard support for common editing, zooming, grid, panning and clipboard
+   operations, alongside the mouse-driven user interface.
+
+
+-------------------------
+ 3 - System Requirements
+-------------------------
+
+PP16 is a 16-bit real-mode DOS program.  It is targeted at a Tandy 1000HX
+with its 640 KiB conventional-memory layout and Tandy 16-colour graphics
+hardware.  It has been built for an 8086-compatible processor; a NEC V20 is
+appropriate for the target machine.
+
+To run PP16, provide:
+
+ * MS-DOS or a compatible DOS environment.
+
+ * Tandy mode 09h, 320 by 200, 16-colour graphics support.  PP16 reserves the
+   required upper graphics page before it changes video mode and refuses to
+   run if that page is already in conflicting use.
+
+ * A Microsoft-compatible mouse and a loaded mouse driver for normal editing.
+   The editor's main tool, palette and menu workflow is mouse-oriented.
+
+ * A writable current directory for .P16, .CLP and TRASH files.
+
+PP16 does not require a GRAFIX TSR, ADJMEM, EMS or XMS.  The conventional-
+memory baseline is intentional.  An emulator may be useful for development
+and testing, but it is not a substitute for testing a particular physical
+machine, mouse driver or DOS configuration.
+
+
+---------------------------
+ 4 - Files and Directories
+---------------------------
+
+Keep the supplied program files together in the directory from which PP16 is
+run.  The following files have these purposes:
+
+File name       Use
+--------------  -------------------------------------------------------------
+PP16.EXE        The PP16 editor program.
+PP16UI.P16      The required 64 by 64 toolbar-icon resource.  Keep this file
+                beside PP16.EXE; it is not an editable drawing document.
+PP16.DOC        This user information file.
+README.TXT      Distribution installation and getting-started instructions.
+HELP.TXT        Quick controls and troubleshooting for end users.
+INSTALL.BAT     Distribution installer; run from the extracted package folder.
+CREDITS.TXT     Author, reference and runtime credit notices.
+*.P16           A native PP16 64 by 64 image.
+*.CLP           A native PP16 clipboard image, rectangular or elliptical.
+
+PP16 works in its current DOS directory.  Its file dialogs accept DOS 8.3
+names and list .P16 and .CLP files found there.  They do not browse directories
+or accept paths, wildcard names or DOS device names.
+
+When a file is replaced, PP16 retains the former version rather than deleting
+it.  Recovery copies and unsuccessful temporary writes are placed below:
+
+    TRASH\YYYYMMDD\Snnnn
+
+YYYYMMDD is the date and Snnnn is a numbered save operation.  Do not remove
+these retained files unless you have made any copies you need.  PP16 does not
+automatically empty the TRASH directory.
+
+
+--------------------------------
+ 5 - PP16 Native File Formats
+--------------------------------
+
+PP16 has two native binary formats.  They are not Microsoft BASIC PUT files,
+and a PP16 .CLP file does not claim compatibility with another program's file
+of the same extension.
+
+ * .P16 is one complete PP16 image.  PP16 currently accepts 64 by 64 images
+   only.  Its payload is 2,048 bytes and its total file size is 2,068 bytes.
+
+ * .CLP is one PP16 clipboard image.  Its width and height may each be from 1
+   through 64 pixels.  It also records whether the clipboard is rectangular
+   or elliptical.
+
+Both formats use the same 20-byte header layout.  Multi-byte numbers are
+unsigned little-endian values.  Pixel rows are written from top to bottom;
+the even X pixel occupies the high nibble of each packed byte.
+
+Offset  Bytes  Meaning
+------  -----  --------------------------------------------------------------
+  0       4    Magic: P16 plus DOS EOF marker (50 31 36 1A), or CLP plus
+                DOS EOF marker (43 4C 50 1A).
+  4       2    Format version: 1.
+  6       2    Header size: 20 bytes.
+  8       2    Width in pixels.
+ 10       2    Height in pixels.
+ 12       2    Flags: 0 for .P16 and rectangular .CLP files; 1 for an
+                elliptical .CLP file.
+ 14       2    Palette identifier: 0, the fixed standard 16 Tandy colours.
+ 16       4    Packed payload length: ceiling(width / 2) multiplied by height.
+ 20       n    Packed pixel rows.
+
+PP16 rejects unsupported versions, incorrect header sizes, dimensions, flags,
+palette identifiers, lengths, extra trailing data and short reads before it
+changes the open image or clipboard.  A failed read leaves the existing work
+in place.
+
+
+--------------------
+ 6 - Starting PP16
+--------------------
+
+At the DOS prompt, change to the directory containing PP16.EXE and the
+PP16UI.P16 resource.  For example:
+
+    CD \PP16
+    PP16
+
+The ready-to-run distribution includes INSTALL.BAT.  From its extracted
+directory, type INSTALL to copy the program and user documentation into
+C:\PP16, or INSTALL D:\PP16 to choose another DOS 8.3 destination.  Existing
+package files are never overwritten.  See README.TXT before installation.
+
+PP16 enters Tandy graphics mode after it has verified that the required video
+memory is available.  If the memory protection check fails, PP16 returns to
+DOS with a refusal message instead of drawing into memory owned by something
+else.
+
+Open an existing image from File / Open after PP16 has started.  PP16 does not
+use a filename as a normal command-line argument.  File / Exit returns to DOS;
+if image pixels have changed since the last save, PP16 asks whether to Cancel
+or Discard the pending changes.  Cancel is the default choice.
+
+
+----------------------
+ 7 - The PP16 Screen
+----------------------
+
+The PP16 screen is arranged for quick sprite work:
+
+ * Tool panel -- at the upper left.  Select, Clipboard, Bucket Fill and Brush
+   occupy the top row; Cut, Circle, Square and Line occupy the bottom row.
+
+ * Brush-size controls -- below the tool panel.  The minus and plus buttons
+   set the shared size used by Brush, Circle, Square and Line.
+
+ * Colour panel -- at the lower left.  Left-click a palette colour to choose
+   the foreground colour; right-click one to choose the background colour.
+
+ * Edit canvas -- the large central grid.  This is the zoomed view of the
+   64 by 64 document and is where drawing and selections take place.
+
+ * Zoom controls -- below the canvas.  Use the 2X, 4X and 8X buttons, or the
+   matching number keys, to set the edit magnification.
+
+ * Image preview -- at the upper right.  This shows the entire image at its
+   true 64 by 64 size.  At 4X and 8X it includes a viewport outline.
+
+ * Clipboard panel -- at the lower right.  It shows the current clipboard at
+   its actual size, its dimensions, a CLR control and transform controls.
+
+ * Status area -- below the canvas.  It reports document or cursor coordinates
+   and reflects the current view.
+
+Use F1 or Help / Quick Help for the short on-screen reference.  Help / About
+PP16 shows the program and reference credits.
+
+
+------------------------------------------------
+ 8 - Drawing, Selection and Clipboard Controls
+------------------------------------------------
+
+Drawing and colour
+------------------
+
+Use left-click or left-drag on the edit canvas to draw with the selected tool.
+Right-click or right-drag on the canvas samples the foreground colour at the
+point under the pointer.  Tab swaps the foreground and background colours.
+
+Brush paints square marks at the selected size.  Bucket Fill replaces the
+connected area under the pointer with the foreground colour.  Circle begins
+at its centre, Square begins at its first corner, and Line begins at its first
+endpoint.  These shape tools show an outline while dragging; releasing the
+left button commits the shape as one action.  Escape cancels an unfinished
+stroke or shape.
+
+The Action menu provides Clear and Clear to Colour.  Clear fills the image
+with black; Clear to Colour fills it with the foreground colour.  Alt+C is
+the keyboard shortcut for Clear.  Either clear action can be undone.
+
+Selection and Cut
+-----------------
+
+Choose Select, then drag across the canvas to make an inclusive rectangular
+selection.  Hold Ctrl while dragging to constrain it to a square.  Right-click
+the Select toolbar button to switch between rectangular and elliptical
+selection.  In ellipse mode, Ctrl constrains the drag box to a circle.
+
+The grey marquee is only an on-screen overlay.  It does not alter pixels,
+dirty state or Undo.  Selecting a different drawing tool removes the marquee
+but leaves the clipboard unchanged.
+
+Use Ctrl+C or Edit / Copy to copy the selection.  Use Ctrl+X, Edit / Cut, or
+the Cut toolbar button to copy it and clear the selected pixels to the current
+background colour.  Cut is one undoable document action.
+
+Clipboard and Paste
+-------------------
+
+The Clipboard toolbar button, Ctrl+V or Edit / Paste starts floating placement
+of the current clipboard.  The paste outline initially appears centred in the
+visible canvas.  Move it with the mouse or arrow keys.  Left-click or press
+Enter to commit the paste; press Escape to cancel it without changing pixels.
+Pasted pixels clip safely at the document edge.
+
+Edit / Paste Behind is a checked toggle.  When enabled, a source clipboard
+pixel is written only where the destination pixel matches the current
+background colour.  It does not make any clipboard colour transparent.
+
+The Clipboard panel's red CLR button empties the session clipboard.  Its three
+controls mirror the clipboard left-to-right, rotate it 90 degrees clockwise,
+or scale it.  These controls affect only the clipboard, not the document or
+Undo history.  For Scale, left-click adds one pixel to both dimensions and
+right-click removes one, with each dimension limited to 1 through 64 pixels.
+
+View and keyboard reference
+----------------------------
+
+Key or control             Action
+-------------------------  -----------------------------------------------
+2, 4 or 8                  Set canvas zoom to 2X, 4X or 8X.
+F4                         Toggle the zoom grid.
+Arrow keys                 Pan the zoomed view by one document pixel.
+Shift + arrow keys         Pan by half the visible view.
+Click or drag image preview Centre the zoomed view at that preview point.
+F1                         Open Quick Help.
+Ctrl+Z                     Undo the most recent completed document action.
+Ctrl+C / Ctrl+X / Ctrl+V   Copy / Cut / begin Paste.
+Tab                        Swap foreground and background colours.
+Alt+C                      Clear the image to black.
+Escape                     Cancel a current action, dialog or floating paste.
+
+At 2X, the entire 64 by 64 image fits within the canvas, so panning has
+no further range.  At 4X and 8X, use the arrow keys for fine movement or drag
+the image preview for an immediate coarse move.
+
+
+-------------------------------------
+ 9 - Saving, Opening and Recovery
+-------------------------------------
+
+File / New starts a blank black 64 by 64 image.  File / Save writes the
+current .P16 file; an unnamed image opens the Save As dialog.  File / Save As
+always asks for a filename.  If an extension is omitted, .P16 is added.
+
+File / Open lists both .P16 and .CLP files.  Opening a .P16 image replaces the
+document after complete validation.  If the document has unsaved pixels, PP16
+first asks whether to Cancel or Discard.  Opening a .CLP file replaces only the
+clipboard; it preserves the open image, view, filename, unsaved state and Undo.
+
+To save a clipboard, choose File / Save As and enter a name ending in .CLP.
+The clipboard's dimensions and rectangular or elliptical shape are retained.
+An empty clipboard cannot be saved.
+
+The filename dialog accepts typed DOS 8.3 names or a selected listed name.
+Tab changes fields; arrow keys and Page Up/Page Down move through the list;
+Home and End move within a field or to the list ends; Enter accepts and Escape
+cancels.  Replacing a file requires confirmation and defaults to Cancel.
+
+PP16 protects a successful replacement as follows:
+
+  1) It writes a temporary file below TRASH for the current save operation.
+  2) It closes, reopens and validates the temporary file, including every
+     packed pixel byte.
+  3) Only after validation does it move an existing target into that TRASH
+     folder and rename the verified new file into place.
+
+If a write, close, validation or rename fails, PP16 retains the current image
+in memory and attempts to retain or restore the previous on-disk file.  Check
+the reported error and the corresponding TRASH subfolder before retrying.
+
+
+------------------------------------
+10 - Credits and Reference Notice
+------------------------------------
+
+PP16
+Copyright (C) 2026 Bartholomew Harner
+Designed and developed by Bartholomew Harner.
+
+Implementation assistance
+OpenAI Codex AI assistant
+Copyright (C) 2026 OpenAI.
+
+Workflow inspiration and reference
+PIXELplus 256
+Copyright (C) 1995 Chris Chadwick (Somerset, England).
+
+PIXELplus 256 was released as freeware by Chris Chadwick on 9 October 1997,
+while Chris Chadwick retained copyright in that package.  PP16 credits
+PIXELplus 256 as a workflow and behaviour reference only.  PP16 is an
+independent new implementation; it does not contain the unavailable PIXELplus
+256 editor source and does not present PIXELplus 256 artwork as PP16 work.
+
+PP16's Mode 09h video-addressing and page-selection work was informed by
+GRAFIX 2.60 and ADJMEM material by Joseph A. Albrecht.  PP16 supplies its own
+Pascal implementation and does not link the original TSR or Pascal object
+files.  The project documentation retains the full source and notice details.
+
+< end of text >

@@ -10,5 +10,5 @@
     "out/HXTEST.TXT": true,
     "out/*.map": true
   },
-  "fpctoolkit.env.FPCDIR": "E:\\Projects\\FPC"
+  "fpctoolkit.env.FPCDIR": "E:/Projects/PP16_DEV/tools/fpc-src-3.2.2"
 }

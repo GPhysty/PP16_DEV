@@ -17,6 +17,15 @@ elif len(sys.argv) > 3 and sys.argv[3] == 'file':
     assert pixels[36*320+50] == 9 and pixels[145*320+269] == 9
     assert pixels[56*320+104] == 15  # Filename starts selected.
     assert pixels[71*320+70] == 1  # Opaque file list.
+elif len(sys.argv) > 3 and sys.argv[3] == 'import':
+    assert pixels[36*320+50] == 9 and pixels[145*320+269] == 9
+    assert pixels[71*320+71] == 14  # PUT image selector has keyboard focus.
+    assert pixels[72*320+198] == 7 and pixels[72*320+232] == 7
+    assert pixels[112*320+257] == 9  # Method selector remains inside the modal panel.
+elif len(sys.argv) > 3 and sys.argv[3] == 'method':
+    assert pixels[36*320+50] == 9 and pixels[145*320+269] == 9
+    assert pixels[102*320+70] == 14 and pixels[112*320+257] == 14
+    assert pixels[98*320+70] == 1  # Four file rows fit above the method selector.
 elif len(sys.argv) > 3 and sys.argv[3] == 'utility':
     assert pixels[62*320] == 15 and pixels[70*320] == 1
 elif len(sys.argv) > 3 and sys.argv[3] == 'menu':
@@ -25,7 +34,7 @@ elif ui:
     assert pixels[0] == 1 and pixels[192*320] == 1
     assert pixels[28*320+84] == 7 and pixels[157*320+213] == 7
     for color in range(16):
-        assert pixels[(133+(color//4)*15)*320+10+(color%4)*19] == color
+        assert pixels[(130+(color//4)*11)*320+10+(color%4)*19] == color
 else:
     assert [pixels[i] for i in (0, 319, 199*320, 63999)] == [15, 12, 10, 9]
     for color in range(16):

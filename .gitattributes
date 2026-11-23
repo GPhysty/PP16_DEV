@@ -1,0 +1,11 @@
+# Preserve frozen DOS release payloads, CRLF text, and their manifest hashes.
+dist/PP16V10/* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+dist/PP16V10/COPYING.TXT -whitespace
+dist/PP16V10/FPCRTL.TXT -whitespace
+dist/PP16V10/*.EXE binary
+dist/PP16V10/*.P16 binary
+dist/*.ZIP binary
+
+# Preserve vendored shader and license bytes, including upstream formatting.
+config/shaders/crt-geom.glsl -text -whitespace
+config/shaders/COPYING.txt -text -whitespace

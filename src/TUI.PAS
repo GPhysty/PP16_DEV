@@ -17,9 +17,11 @@ procedure PerfCase(N:Integer);
 {$endif}
 {$ifdef PP16_FILEUI_TEST}function FileUIChecks:Word;{$endif}
 {$ifdef PP16_CLIP_TEST}function ClipChecks:Word;{$endif}
+{$ifdef PP16_GRADIENT_TEST}function GradientChecks:Word;{$endif}
+{$ifdef PP16_IMPORT_TEST}function ImportChecks:Word;{$endif}
 procedure PointerFeedback(X,Y:Integer);
 implementation
-uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster
+uses Dos,TVideo,TCursor,TDoc,TView,TFont,TFiles,TFDialog,TRaster,TPaint,TConvert
 {$ifdef PP16_CLIP_ENABLED},TClip{$endif};
 const ToolNames:array[0..7] of String[12]=
       ('SELECT','CLIPBOARD','BUCKET FILL','BRUSH','CUT','CIRCLE','SQUARE','LINE');
@@ -35,16 +37,23 @@ const ImagePreviewX=233; ImagePreviewY=29;
       ClipClearButtonWidth=18; ClipClearButtonHeight=10;
       ClipTransformButtonX=300; ClipTransformButtonSize=18;
       ClipMirrorButtonY=123; ClipRotateButtonY=142; ClipScaleButtonY=161;
+      PaletteY=126; PaletteStep=11; PaletteHeight=10;
+      GradientY=177; GradientHeight=13; GradientBoxWidth=12;
+      GradientAX=2; GradientBX=66; GradientRampX=16; GradientRampWidth=48;
 var OpenMenu:Integer;
     HoverDX,HoverDY:Integer; ExitRequested:Boolean;
     Gesture:Byte; StrokeColor,StrokeSize:Byte; StrokeX,StrokeY:Integer;
     ShapeTool:Byte; ShapeX,ShapeY:Integer;
     ShapePreviewX,ShapePreviewY:Integer; ShapePreviewVisible:Boolean;
+    ShapeDashAlongX:Boolean;
+    FilledShapeTools:array[5..6] of Boolean;
+    ShapeFilled:Boolean; ShapeFillColor:Byte;
     StrokeValid,ShapeValid,PointerBlocked,PaintedDirty:Boolean;
     RepaintedCells:Word;
     PendingCommand:Byte; ConfirmDiscard:Boolean;
     ToolAtlas:TDocPixels; ToolAtlasLoaded:Boolean;
     CachedTool,CachedFore,CachedBack:Integer;
+    GradientArm:Byte;
     PreviewValid:Boolean; PreviewX1,PreviewY1,PreviewX2,PreviewY2:Integer;
     ViewedZoom,ViewedPanX,ViewedPanY:Integer; ViewedGrid:Boolean;
     SavedPopup:TSavedArea; PopupSaved:Boolean;
@@ -62,9 +71,6 @@ var OpenMenu:Integer;
 procedure PaintChanges; forward;
 procedure StartFileDialog(Saving:Boolean); forward;
 procedure Title; forward;
-{$ifdef PP16_CLIP_ENABLED}
-procedure PreviewShapePixel(X,Y:Integer; C:Integer); forward;
-{$endif}
 
 function Num(N:Integer):String;
 var S:String[6];
@@ -96,6 +102,12 @@ end;
 
 function ToolUsesBrushSize:Boolean;
 begin ToolUsesBrushSize:=SelectedTool in [3,5,6,7] end;
+
+function ToolFilled(I:Integer):Boolean;
+begin
+  ToolFilled:=False;
+  if I in [5,6] then ToolFilled:=FilledShapeTools[I];
+end;
 
 function ToolIcon(I:Integer):Integer;
 begin
@@ -154,7 +166,8 @@ begin
     SmallText(7,64,'SELECT:'+Num(SelectionW)+'X'+Num(SelectionH),15)
   else
   {$endif}
-    SmallText(7,64,ToolNames[SelectedTool],15);
+    if ToolFilled(SelectedTool) then SmallText(7,64,'FILLED '+ToolNames[SelectedTool],15)
+    else SmallText(7,64,ToolNames[SelectedTool],15);
   FillBox(0,70,78,79,0);
   Button(2,70,9,9,False); Button(68,70,9,9,False);
   if ToolUsesBrushSize then
@@ -180,37 +193,83 @@ begin
   BrushSize:=NewSize; Tools;
 end;
 
+function RampStep(X:Integer):Byte;
+begin RampStep:=((X-GradientRampX)*11) div GradientRampWidth end;
+
+procedure GradientPanel;
+var X,Y,M:Integer; A,B:Byte; S:String[16];
+begin
+  FillBox(1,170,78,190,0);
+  S:='DITHER '+Num(GradientStep*10)+'%';
+  if GradientArm=1 then S:='PICK A: PALETTE'
+  else if GradientArm=2 then S:='PICK B: PALETTE';
+  SmallText(4,170,S,7);
+  A:=7; B:=7;
+  if GradientArm=1 then A:=14 else if GradientArm=2 then B:=14;
+  DrawBorder(GradientAX,GradientY,GradientAX+GradientBoxWidth-1,
+    GradientY+GradientHeight-1,A);
+  DrawBorder(GradientBX,GradientY,GradientBX+GradientBoxWidth-1,
+    GradientY+GradientHeight-1,B);
+  FillBox(GradientAX+1,GradientY+1,GradientAX+GradientBoxWidth-2,
+    GradientY+GradientHeight-2,GradientFirst);
+  FillBox(GradientBX+1,GradientY+1,GradientBX+GradientBoxWidth-2,
+    GradientY+GradientHeight-2,GradientLast);
+  for Y:=GradientY+1 to GradientY+GradientHeight-2 do
+    for X:=GradientRampX+1 to GradientRampX+GradientRampWidth-2 do
+      PutPixel(X,Y,MixColor(X-GradientRampX,Y-GradientY,RampStep(X)));
+  DrawBorder(GradientRampX,GradientY,GradientRampX+GradientRampWidth-1,
+    GradientY+GradientHeight-1,8);
+  M:=GradientRampX+((Integer(GradientStep)*2+1)*GradientRampWidth) div 22;
+  if ForeColor=GradientPaint then A:=15 else A:=8;
+  HSpan(M-1,M+1,190,A);
+end;
+
 procedure Colors;
-var I,X,Y:Integer;
+var I,X,Y:Integer; S:String[6];
 begin
   if (CachedFore=ForeColor) and (CachedBack=BackColor) then Exit;
   if CachedFore<0 then begin
   FillBox(1,80,78,115,0);
-  SmallText(2,86,'>',15); DrawBorder(12,80,48,94,15); FillBox(14,82,46,92,ForeColor);
-  SmallText(52,85,':'+Num(ForeColor),15);
-  DrawBorder(12,99,48,113,15); FillBox(14,101,46,111,BackColor);
-  SmallText(52,104,':'+Num(BackColor),15);
+  SmallText(2,86,'>',15); DrawBorder(12,80,48,94,15);
+  DrawBorder(12,99,48,113,15);
   SmallText(7,118,'PALETTE',7);
-  end else begin
-    if CachedFore<>ForeColor then begin
-      FillBox(14,82,46,92,ForeColor); FillBox(52,85,77,89,0);
-      SmallText(52,85,':'+Num(ForeColor),15);
-    end;
-    if CachedBack<>BackColor then begin
-      FillBox(14,101,46,111,BackColor); FillBox(52,104,77,108,0);
-      SmallText(52,104,':'+Num(BackColor),15);
-    end;
+  end;
+  if (CachedFore<0) or (CachedFore<>ForeColor) then begin
+    if ForeColor=GradientPaint then
+      for Y:=82 to 92 do for X:=14 to 46 do
+        PutPixel(X,Y,PaintColor(X-14,Y-82,GradientPaint))
+    else FillBox(14,82,46,92,ForeColor);
+    FillBox(52,85,77,89,0);
+    if ForeColor=GradientPaint then S:=Num(GradientStep*10)+'%'
+    else S:=Num(ForeColor);
+    SmallText(52,85,':'+S,15);
+  end;
+  if (CachedFore<0) or (CachedBack<>BackColor) then begin
+    FillBox(14,101,46,111,BackColor); FillBox(52,104,77,108,0);
+    SmallText(52,104,':'+Num(BackColor),15);
   end;
   for I:=0 to 15 do
   if (CachedFore<0) or (I=CachedFore) or (I=CachedBack) or
      (I=ForeColor) or (I=BackColor) then
   begin
-    X:=2+(I mod 4)*19; Y:=126+(I div 4)*15;
-    FillBox(X,Y,X+17,Y+13,I); DrawBorder(X,Y,X+17,Y+13,8);
-    if I=ForeColor then DrawBorder(X+1,Y+1,X+16,Y+12,15);
-    if I=BackColor then PutPixel(X+3,Y+10,15);
+    X:=2+(I mod 4)*19; Y:=PaletteY+(I div 4)*PaletteStep;
+    FillBox(X,Y,X+17,Y+PaletteHeight-1,I);
+    DrawBorder(X,Y,X+17,Y+PaletteHeight-1,8);
+    if I=ForeColor then DrawBorder(X+1,Y+1,X+16,Y+PaletteHeight-2,15);
+    if I=BackColor then PutPixel(X+3,Y+PaletteHeight-4,15);
   end;
+  if (CachedFore<0) or ((ForeColor=GradientPaint)<>(CachedFore=GradientPaint)) then
+    GradientPanel;
   CachedFore:=ForeColor; CachedBack:=BackColor;
+end;
+
+procedure SwapColors;
+var C:Byte;
+begin
+  C:=ForeColor; ForeColor:=BackColor;
+  if C<>GradientPaint then BackColor:=C;
+  if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1 end;
+  Colors;
 end;
 
 procedure DrawCanvas;
@@ -403,9 +462,9 @@ end;
 
 const PopupX:array[0..5] of Integer=(1,32,64,96,136,184);
       PopupW:array[0..5] of Integer=(168,152,104,200,176,112);
-      MenuRows:array[0..5] of Integer=(5,7,1,2,0,2);
+      MenuRows:array[0..5] of Integer=(7,7,1,2,0,2);
       Labels:array[0..5,0..7] of String[20]=(
-       ('New','Open...','Save','Save As...','Exit','','',''),
+       ('New','Open...','Save','Save As...','Import...','Export PCX...','Exit',''),
        ('Undo','','Cut','Copy','Paste','','Paste Behind',''),
        ('Grid On','','','','','','',''),
        ('Clear','Clear to Colour','','','','','',''),
@@ -422,7 +481,7 @@ end;
 
 function Enabled(M,I:Integer):Boolean;
 begin
-  Enabled:=((M=0) and (I in [0,1,2,3,4])) or
+  Enabled:=((M=0) and (I in [0..6])) or
 {$ifdef PP16_CLIP_ENABLED}
            ((M=1) and (((I=0) and DocCanUndo) or
                        ((I in [2,3]) and SelectionValid) or
@@ -486,7 +545,8 @@ begin
     SmallText(164,103,'TAB: SWAP COLORS',15);
     SmallText(164,111,'ALT+C: CLEAR',15);
     HSpan(62,258,121,8);
-    SmallText(64,129,'SELECT: DRAG   CLR: EMPTY CLIP',15);
+    SmallText(64,126,'DITHER: END BOX, THEN PALETTE',15);
+    SmallText(64,133,'RAMP: MIX  PALETTE: SOLID',15);
     SmallText(64,141,'F4: GRID   ESC/CLICK: CLOSE',15); Exit;
   end;
   if OpenMenu=7 then
@@ -733,8 +793,10 @@ end;
 {$endif}
 
 procedure InitUI;
-begin LoadToolAtlas; InitView; ForeColor:=15; BackColor:=0;
+begin LoadToolAtlas; InitView; InitPaint; GradientArm:=0;
+  ForeColor:=15; BackColor:=0;
   BrushSize:=1; StrokeSize:=1;
+  FilledShapeTools[5]:=False; FilledShapeTools[6]:=False; ShapeFilled:=False;
   StatusValid:=False; ShiftHeld:=False; CtrlHeld:=False;
   CachedTool:=-1; CachedFore:=-1; CachedBack:=-1;
   PreviewValid:=False; PopupSaved:=False; ViewedZoom:=-1;
@@ -921,7 +983,10 @@ begin
             begin
               case I of
                 0:RequestCommand(1); 1:RequestCommand(3);
-                2:SaveCurrent; 3:StartFileDialog(True); 4:RequestCommand(2);
+                2:SaveCurrent; 3:StartFileDialog(True);
+                4:begin ClosePopup; BeginImportDialog; SetPopup(9) end;
+                5:begin BeginExportDialog; SetPopup(9) end;
+                6:RequestCommand(2);
               end;
               Exit;
             end
@@ -963,13 +1028,33 @@ begin
     end;
     Exit;
   end;
-  if (X>=2) and (X<78) and (Y>=126) and (Y<186) then
+  if (X>=2) and (X<78) and (Y>=PaletteY) and (Y<PaletteY+4*PaletteStep) then
   begin
-    if ((X-2) mod 19>=18) or ((Y-126) mod 15>=14) then Exit;
-    I:=((Y-126) div 15)*4+(X-2) div 19;
-    if Button=1 then ForeColor:=I else if Button=2 then BackColor:=I;
+    if ((X-2) mod 19>=18) or ((Y-PaletteY) mod PaletteStep>=PaletteHeight) then Exit;
+    I:=((Y-PaletteY) div PaletteStep)*4+(X-2) div 19;
+    if Button=1 then
+      if GradientArm<>0 then
+      begin
+        if GradientArm=1 then SetGradient(I,GradientLast,GradientStep)
+        else SetGradient(GradientFirst,I,GradientStep);
+        GradientArm:=0; ForeColor:=GradientPaint; CachedFore:=-1;
+      end else ForeColor:=I
+    else if Button=2 then BackColor:=I;
     Colors; Exit;
   end;
+  if (Button=1) and (Y>=GradientY) and (Y<GradientY+GradientHeight) then
+  begin
+    if (X>=GradientAX) and (X<GradientAX+GradientBoxWidth) then GradientArm:=1
+    else if (X>=GradientBX) and (X<GradientBX+GradientBoxWidth) then GradientArm:=2
+    else if (X>=GradientRampX) and (X<GradientRampX+GradientRampWidth) then
+    begin
+      SetGradient(GradientFirst,GradientLast,RampStep(X));
+      ForeColor:=GradientPaint; GradientArm:=0;
+    end else Exit;
+    CachedFore:=-1; Colors; Exit;
+  end;
+  {Any other control ends endpoint assignment without consuming its action.}
+  if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end;
   {$ifdef PP16_CLIP_ENABLED}
   if (Button=2) and (X>=2) and (X<20) and (Y>=18) and (Y<36) then
   begin
@@ -999,17 +1084,14 @@ begin
     end;
   end;
   {$endif}
-  if Button<>1 then Exit;
-  if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
-  begin I:=ForeColor; ForeColor:=BackColor; BackColor:=I; Colors; Exit end;
-  {$ifdef PP16_CLIP_ENABLED}
-  if (Button=1) and (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
-  begin BeginPaste; Exit end;
-  {$endif}
-  if (X>=2) and (X<78) and (Y>=18) and (Y<56) then
+  if (Button in [1,2]) and (X>=2) and (X<78) and (Y>=18) and (Y<56) then
   begin
     if ((X-2) mod 19>=18) or ((Y-18) mod 19>=18) then Exit;
     I:=((Y-18) div 19)*4+(X-2) div 19;
+    if Button=2 then begin
+      if not (I in [5,6]) then Exit;
+      FilledShapeTools[I]:=not FilledShapeTools[I];
+    end;
     if I=1 then
     begin
       {$ifdef PP16_CLIP_ENABLED}if Button=1 then BeginPaste;{$endif}
@@ -1023,6 +1105,13 @@ begin
     {$endif}
     SelectedTool:=I; Tools; Exit;
   end;
+  if Button<>1 then Exit;
+  if (X>=12) and (X<=48) and (Y>=99) and (Y<=113) then
+  begin SwapColors; Exit end;
+  {$ifdef PP16_CLIP_ENABLED}
+  if (X>=218) and (X<=318) and (Y>=101) and (Y<=190) then
+  begin BeginPaste; Exit end;
+  {$endif}
   if ControlHit(X,Y,ZoomButtonX,ZoomButtonWidth,ZoomButtonHeight,ZoomButtonStep,3,I) then
   begin SetZoom(2 shl I); RedrawView end;
 end;
@@ -1096,43 +1185,59 @@ begin
 end;
 
 procedure PreviewShapePixel(X,Y:Integer; C:Integer);
-var SX,SY,J:Integer;
+var DX,DY,P:Integer;
 begin
-  {The live outline is a canvas-only overlay. It never enters the document or
-   the 1:1 image preview, so release remains the one commit point.}
-  if (X<PanX) or (X>=PanX+VisibleCells) or
-     (Y<PanY) or (Y>=PanY+VisibleCells) then Exit;
-  if C<0 then C:=DocPixel(X,Y);
-  SX:=CanvasX+(X-PanX)*Zoom;
-  SY:=CanvasY+(Y-PanY)*Zoom;
-  FillBox(SX,SY,SX+Zoom-1,SY+Zoom-1,C);
-  if GridVisible and (Zoom>=2) then
-  begin
-    HSpan(SX,SX+Zoom-1,SY+Zoom-1,8);
-    for J:=SY to SY+Zoom-2 do PutPixel(SX+Zoom-1,J,8);
+  {Positioning guides are one screen pixel wide, regardless of brush size.
+   Restore only their screen pixels, including any grid they covered.}
+  if not IsCanvas(X,Y) then Exit;
+  if C<0 then begin
+    C:=8;
+    if ScreenToDoc(X,Y,DX,DY) then begin
+      C:=DocPixel(DX,DY);
+      if GridVisible and
+         (((X-CanvasX) mod Zoom=Zoom-1) or
+          ((Y-CanvasY) mod Zoom=Zoom-1)) then C:=8;
+    end;
+  end else begin
+    P:=X+Y;
+    {Use distance along a line's major axis so diagonals stay dashed too.}
+    if ShapeTool=7 then
+      if ShapeDashAlongX then P:=X else P:=Y;
+    if Odd(P) then C:=7 else C:=8;
   end;
-end;
-
-procedure PreviewShapeStamp(X,Y:Integer; C:Integer);
-begin
-  RasterStamp(X,Y,C,StrokeSize,PreviewShapePixel);
+  PutPixel(X,Y,C);
 end;
 
 procedure DrawShapeOutline(X,Y:Integer; C:Integer);
+var X1,Y1,Offset:Integer;
 begin
+  X1:=StrokeX; Y1:=StrokeY;
+  {Use the same constrained square endpoint as the committed rasterizer.}
+  if ShapeTool=6 then SquareEndpoint(X1,Y1,X,Y);
+  ShapeDashAlongX:=Abs(X-X1)>=Abs(Y-Y1);
+  Offset:=(Zoom-1) div 2;
+  X1:=CanvasX+(X1-PanX)*Zoom+Offset;
+  Y1:=CanvasY+(Y1-PanY)*Zoom+Offset;
+  X:=CanvasX+(X-PanX)*Zoom+Offset;
+  Y:=CanvasY+(Y-PanY)*Zoom+Offset;
   case ShapeTool of
-    5:RasterCircle(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
-    6:RasterSquare(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
-    7:RasterLine(StrokeX,StrokeY,X,Y,C,PreviewShapeStamp);
+    5:RasterCircle(X1,Y1,X,Y,C,PreviewShapePixel);
+    6:begin
+        RasterLine(X1,Y1,X,Y1,C,PreviewShapePixel);
+        RasterLine(X,Y1,X,Y,C,PreviewShapePixel);
+        RasterLine(X,Y,X1,Y,C,PreviewShapePixel);
+        RasterLine(X1,Y,X1,Y1,C,PreviewShapePixel);
+      end;
+    7:RasterLine(X1,Y1,X,Y,C,PreviewShapePixel);
   end;
 end;
 
 procedure ShowShapePreview;
 begin
   if not ShapeValid then Exit;
-  {Restore only the cells of the prior temporary outline, including grid
-   borders, then paint the new outline. This avoids a full 128x128 rebuild
-   for every pointer movement.}
+  if ShapePreviewVisible and (ShapeX=ShapePreviewX) and
+     (ShapeY=ShapePreviewY) then Exit;
+  {Restore the previous guide before drawing its new position.}
   if ShapePreviewVisible then
     DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
   DrawShapeOutline(ShapeX,ShapeY,StrokeColor);
@@ -1141,13 +1246,20 @@ end;
 
 procedure EndGesture(Buttons:Byte);
 begin
-  if Gesture=4 then
+  if Gesture=4 then begin
+    {The final paint may leave some guide pixels unchanged. Erase it first.}
+    if ShapePreviewVisible then DrawShapeOutline(ShapePreviewX,ShapePreviewY,-1);
     if ShapeValid then
       case ShapeTool of
-        5:DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
-        6:DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        5:if ShapeFilled then
+            DocFilledCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,ShapeFillColor,StrokeSize)
+          else DocCircle(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
+        6:if ShapeFilled then
+            DocFilledSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,ShapeFillColor,StrokeSize)
+          else DocSquare(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
         7:DocLine(StrokeX,StrokeY,ShapeX,ShapeY,StrokeColor,StrokeSize);
       end;
+  end;
   if Gesture in [1,4] then DocCommitAction;
   Gesture:=0; StrokeValid:=False; ShapeValid:=False; ShapePreviewVisible:=False;
   PointerBlocked:=Buttons<>0;
@@ -1184,6 +1296,7 @@ begin
   if Gesture=2 then
   begin
     C:=DocPixel(DX,DY);
+    if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1 end;
     if ForeColor<>C then begin ForeColor:=C; Colors end;
     Exit;
   end;
@@ -1241,6 +1354,7 @@ begin
   begin Gesture:=3; ApplyGesture(S.X,S.Y); Exit end;
   if (OpenMenu<0) and ScreenToDoc(S.X,S.Y,DX,DY) then
   begin
+    if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end;
     if (S.Pressed and 2)<>0 then Gesture:=2
     {$ifdef PP16_CLIP_ENABLED}
     else if SelectedTool=0 then
@@ -1263,6 +1377,7 @@ begin
     else if SelectedTool in [5,6,7] then
     begin
       Gesture:=4; ShapeTool:=SelectedTool; StrokeColor:=ForeColor;
+      ShapeFilled:=ToolFilled(SelectedTool); ShapeFillColor:=BackColor;
       StrokeSize:=BrushSize;
       StrokeX:=DX; StrokeY:=DY; ShapeX:=DX; ShapeY:=DY; ShapeValid:=True;
       ShapePreviewVisible:=False;
@@ -1280,7 +1395,6 @@ begin
 end;
 
 procedure KeyInput(Key,Scan,Buttons:Byte);
-var Temp:Byte;
 begin
   if Gesture<>0 then
   begin
@@ -1320,6 +1434,7 @@ begin
   if Key=27 then
   begin
     if OpenMenu>=0 then ClosePopup
+    else if GradientArm<>0 then begin GradientArm:=0; CachedFore:=-1; Colors end
     else if not MouseReady then RequestCommand(2);
     PointerBlocked:=Buttons<>0; Exit;
   end;
@@ -1334,7 +1449,7 @@ begin
       3:CopySelection; {Ctrl+C}
       {$endif}
       50,52,56:begin SetZoom(Key-48); RedrawView end;
-      9:begin Temp:=ForeColor; ForeColor:=BackColor; BackColor:=Temp; Colors end;
+      9:SwapColors;
       {$ifdef PP16_CLIP_ENABLED}
       22:BeginPaste; {Ctrl+V}
       24:CutSelection; {Ctrl+X}
@@ -1446,7 +1561,7 @@ begin
   {Exercise real control dispatch, including a consumed menu-dismissal click.}
   InitView;
   HandleClick(4,128,1); if ForeColor<>0 then Inc(F);
-  HandleClick(62,174,2); if BackColor<>15 then Inc(F);
+  HandleClick(62,PaletteY+3*PaletteStep+2,2); if BackColor<>15 then Inc(F);
   HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>2 then Inc(F);
   HandleClick(ZoomButtonX+2*ZoomButtonStep+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
   HandleClick(5,3,1); HandleClick(ZoomButtonX+2,NavigationY+2,1); if Zoom<>8 then Inc(F);
@@ -1567,6 +1682,21 @@ var F:Word; S:TMouseState; I,X,Y,Z,A,B:Integer; C:Byte; Before:DWord;
     FillChar(S,SizeOf(S),0); SelectedTool:=3; ForeColor:=15; BackColor:=0;
   end;
 
+  procedure DumpGuide(const Name:String);
+  var Output:File; Row:TRow; Y:Integer; N:Word;
+  begin
+    {$I-} Assign(Output,Name); Rewrite(Output,1);
+    if IOResult<>0 then begin Check(False,'open guide review frame'); Exit end;
+    for Y:=0 to 199 do begin
+      ReadVideoBytes(0,Y,160,Row); BlockWrite(Output,Row,160,N);
+      if (IOResult<>0) or (N<>160) then begin Check(False,'write guide review frame'); Break end;
+    end;
+    Close(Output); Check(IOResult=0,'close guide review frame'); {$I+}
+  end;
+
+  {$I ../tests/SHAPETEST.INC}
+  {$I ../tests/FILLEDSHAPE.INC}
+
 begin
   F:=0; ResetTest;
   Check(BrushSize=1,'default brush size');
@@ -1621,12 +1751,14 @@ begin
   AtDoc(63,0,1); AtDoc(0,63,0);
   for I:=0 to 63 do
     Check((DocPixel(I,I)=15) and (DocPixel(63-I,I)=15),'fast diagonal continuity');
-  ResetTest; BrushSize:=3; SelectedTool:=7;
+  ResetTest; DrawUI; BrushSize:=3; SelectedTool:=7;
   AtDoc(10,10,1); AtDoc(15,10,1);
   Check((DocChecksum=0) and
         (GetPixel(CanvasX+(15-PanX)*Zoom,
-                  CanvasY+(9-PanY)*Zoom)=15),
-        'thick line preview is canvas-only');
+                  CanvasY+(10-PanY)*Zoom) in [7,8]) and
+        (GetPixel(CanvasX+(15-PanX)*Zoom,
+                  CanvasY+(9-PanY)*Zoom)=0),
+        'thick line uses a thin gray guide');
   AtDoc(15,10,0);
   Check((DocPixel(9,9)=15) and (DocPixel(16,11)=15) and
         (DocPixel(12,10)=15),'three-pixel line outline');
@@ -1640,7 +1772,7 @@ begin
         'three-pixel circle outline');
   ResetTest;
   SelectedTool:=7; AtDoc(2,2,1); AtDoc(8,5,1);
-  Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=15) and
+  Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10) in [7,8]) and
         (GetPixel(ImagePreviewX+8,ImagePreviewY+5)=0),'shape preview is canvas-only before release');
   KeyInput(27,1,1);
   Check((DocChecksum=0) and (GetPixel(CanvasX+16,CanvasY+10)=0),
@@ -1665,6 +1797,8 @@ begin
   Check((DocChecksum=Before) and DocDirty and DocCanUndo,'escape cancels pending shape');
   Before:=DocChecksum; AtDoc(20,20,2); AtDoc(21,21,0);
   Check((ForeColor=0) and (DocChecksum=Before),'right drag samples without drawing');
+  CheckShapeGuides;
+  CheckFilledShapes;
   ResetTest;
   AtDoc(2,10,1); AtDoc(5,10,1); Feed(80,49,1); AtDoc(20,10,1); AtDoc(23,10,0);
   Check((DocPixel(5,10)=15) and (DocPixel(20,10)=15),'re-entry resumes stroke');
@@ -1739,7 +1873,8 @@ begin
     4:begin
         RequestCommand(2); KeyInput(9,15,0); KeyInput(9,15,0); KeyInput(13,28,0);
       end;
-    5:begin HandleClick(24,143,1); HandleClick(43,158,2); KeyInput(9,15,0) end;
+    5:begin HandleClick(24,PaletteY+PaletteStep+2,1);
+        HandleClick(43,PaletteY+2*PaletteStep+2,2); KeyInput(9,15,0) end;
     6:begin
         HandleClick(5,21,1); HandleClick(45,40,1);
         HandleClick(65,40,1); HandleClick(65,21,1);
@@ -1833,7 +1968,10 @@ end;
 
 {$ifdef PP16_FILEUI_TEST}
 function FileUIChecks:Word;
-var F:Word; Before:DWord; I:Integer;
+var F:Word; Before:DWord; I:Integer; WasDirty,WasUndo:Boolean; OldName:TFileName;
+    OldPanX,OldPanY:Integer;
+    UndoPixel:Byte;
+{$I ../tests/STACKCHK.INC}
 
   procedure Check(OK:Boolean; const Name:String);
   begin if not OK then begin Inc(F); WriteLn('FAIL: ',Name) end end;
@@ -1851,7 +1989,7 @@ var F:Word; Before:DWord; I:Integer;
   end;
 
 begin
-  F:=0; InitUI; DrawUI; Before:=DocChecksum;
+  F:=0; InitUI; MarkUnusedStack; DrawUI; Before:=DocChecksum;
   KeyInput(19,31,0); KeyInput(15,24,0);
   Check(OpenMenu=-1,'removed Save/Open shortcuts do nothing');
   Choose(0,2); Check(OpenMenu=9,'Save of unnamed image opens dialog');
@@ -1886,6 +2024,35 @@ begin
   Check((OpenMenu=-1) and (CurrentFile=ToolAtlasName),'mouse file list and OK');
   StartFileDialog(True); KeyInput(13,28,0); KeyInput(9,15,0); KeyInput(13,28,0);
   Check((OpenMenu=-1) and not DocDirty,'explicit overwrite confirms');
+  SetZoom(8); PanView(3,5); ForeColor:=13; BackColor:=6; BrushSize:=3;
+  OldPanX:=PanX; OldPanY:=PanY;
+  UndoPixel:=DocPixel(1,0);
+  DocBeginAction; DocSetPixel(1,0,9); DocCommitAction; Before:=DocChecksum;
+  OldName:=CurrentFile; WasDirty:=DocDirty; WasUndo:=DocCanUndo;
+  Choose(0,5);
+  Check((OpenMenu=9) and DialogExporting and DialogSaving and not DialogImporting,
+        'File Export PCX opens dedicated export chooser');
+  KeyInput(27,1,0);
+  Check((OpenMenu=-1) and (DocChecksum=Before) and DocDirty,'cancel export preserves image');
+  Choose(0,5); TypeName('WRONG.PUT'); KeyInput(13,28,0);
+  Check((OpenMenu=9) and (FileError<>'') and not Exists('WRONG.PUT'),
+        'export rejects non-PCX filename');
+  KeyInput(27,1,0); Choose(0,5); TypeName('UIEXPORT'); KeyInput(13,28,0);
+  Check((OpenMenu=-1) and Exists('UIEXPORT.PCX') and (CurrentFile=OldName) and
+        (DocDirty=WasDirty) and (DocCanUndo=WasUndo) and (DocChecksum=Before),
+        'successful export adds PCX extension and preserves native document state');
+  Check((Zoom=8) and (PanX=OldPanX) and (PanY=OldPanY) and
+        (ForeColor=13) and (BackColor=6) and (BrushSize=3),
+        'export keeps view and paint settings');
+  Choose(0,5); TypeName('UIEXPORT.PCX'); KeyInput(13,28,0); KeyInput(13,28,0);
+  Check((OpenMenu=9) and (DocChecksum=Before),'PCX replacement defaults to Cancel');
+  KeyInput(27,1,0);
+  Choose(0,5); TypeName('UIEXPORT.PCX'); KeyInput(13,28,0);
+  HandleClick(110,130,1);
+  Check((OpenMenu=-1) and DocDirty and (CurrentFile=OldName),'mouse confirms PCX replacement');
+  DocUndo;
+  Check((DocPixel(1,0)=UndoPixel) and not DocDirty,'export undo restores original pixels and clean state');
+  Check(CheckStackMargin,'export dialog keeps at least 1 KiB stack margin');
   StartFileDialog(False);
   WriteLn('M6: Save/Open dialogs, overwrite, dirty protection and saved undo checked');
   FileUIChecks:=F;
@@ -1895,7 +2062,7 @@ end;
 
 {$ifdef PP16_UNDO_TEST}
 function UndoChecks:Word;
-var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
+var F:Word; S:TMouseState; X,Y:Integer; Before:DWord; C:Byte;
 
   procedure Check(OK:Boolean; const Name:String);
   begin if not OK then begin Inc(F); WriteLn('FAIL: ',Name) end end;
@@ -1916,6 +2083,19 @@ var F:Word; S:TMouseState; X,Y:Integer; Before:DWord;
   begin
     HandleClick(MenuX[M],3,1);
     HandleClick(PopupX[M]+14,MenuRowY(M,I)+1,1);
+  end;
+
+  procedure CheckCleared(Color:Byte);
+  var X,Y:Integer;
+  begin
+    for Y:=0 to 63 do for X:=0 to 63 do
+    begin
+      Check(DocPixel(X,Y)=Color,'clear fills every document pixel');
+      Check(GetPixel(CanvasX+X*2,CanvasY+Y*2)=Color,'clear redraws every canvas cell');
+      Check(GetPixel(ImagePreviewX+X,ImagePreviewY+Y)=Color,'clear redraws every preview pixel');
+      Check((GetPixel(CanvasX+X*2+1,CanvasY+Y*2)=8) and
+            (GetPixel(CanvasX+X*2,CanvasY+Y*2+1)=8),'clear preserves the canvas grid');
+    end;
   end;
 
 begin
@@ -1970,16 +2150,33 @@ begin
   Check((DocChecksum=0) and not DocDirty and not DocCanUndo,
         'cancel first stroke including release restores clean state');
 
-  InitUI; Before:=DocChecksum; Choose(3,0);
+  InitUI; SetZoom(2); PanView(-64,-64); DrawUI; Before:=DocChecksum; Choose(3,0);
   Check((DocChecksum=0) and DocDirty and DocCanUndo,'menu clear is undoable');
+  CheckCleared(0);
   DocUndo; Check((DocChecksum=Before) and not DocDirty,'clear undo restores demo');
   ForeColor:=6; Choose(3,1);
-  for Y:=0 to 63 do for X:=0 to 63 do
-    Check(DocPixel(X,Y)=6,'clear to foreground covers all pixels');
+  CheckCleared(6);
   Choose(3,1); DocUndo;
   Check(DocChecksum=Before,'same-color clear preserves preceding undo');
-  KeyInput(0,46,0); Check(DocChecksum=0,'Alt+C clears');
+  KeyInput(0,46,0); PaintChanges; Check(DocChecksum=0,'Alt+C clears');
+  CheckCleared(0);
   DocUndo; Check(DocChecksum=Before,'Alt+C undo');
+
+  {Sparse changes must still use the complete-image redraw for either nibble.}
+  for C:=0 to 15 do
+  begin
+    ResetTest; InitBlankDoc(C); DrawUI; DocClear(C);
+    Check(not DocDirty and not DocCanUndo and not DocAllDirty,
+          'unchanged clear stays clean without undo or repaint');
+    DocBeginAction; DocSetPixel(10,10,C xor 1); DocCommitAction; Before:=DocChecksum;
+    DocClear(C);
+    Check(DocAllDirty and DocDirty and DocCanUndo,'sparse clear requests complete-image redraw');
+    PaintChanges; CheckCleared(C);
+    DocClear(C);
+    Check(not DocAllDirty and DocDirty and DocCanUndo,'unchanged clear keeps dirty state and undo');
+    DocUndo;
+    Check((DocChecksum=Before) and DocDirty and not DocCanUndo,'clear undo restores dirty image');
+  end;
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Before:=DocChecksum;
   Choose(0,0);
@@ -1990,7 +2187,7 @@ begin
   KeyInput(13,28,0);
   Check((OpenMenu=-1) and (DocChecksum=Before) and DocCanUndo,
         'default Enter cancels New and preserves undo');
-  Choose(0,4); KeyInput(27,1,0);
+  Choose(0,6); KeyInput(27,1,0);
   Check(not ExitRequested and (DocChecksum=Before),'Escape cancels dirty File Exit');
   KeyInput(27,1,0); HandleClick(180,115,1);
   Check(not ExitRequested and (OpenMenu=-1),'mouse Cancel keeps working image');
@@ -1999,15 +2196,15 @@ begin
         'explicit discard creates clean blank and resets undo');
   InitUI; Choose(0,0);
   Check((DocChecksum=0) and (OpenMenu=-1),'clean New needs no discard prompt');
-  Choose(0,4); Check(ExitRequested,'clean File Exit works');
+  Choose(0,6); Check(ExitRequested,'clean File Exit works');
 
   ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,0);
   Feed(80,115,1); AtDoc(30,30,1); AtDoc(30,30,0);
   Check((DocChecksum=0) and not DocDirty,'discard click cannot leak into new canvas');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,6);
   KeyInput(9,15,0); KeyInput(13,28,0);
   Check(ExitRequested,'explicit keyboard discard exits');
-  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,4);
+  ResetTest; AtDoc(10,10,1); AtDoc(10,10,0); Choose(0,6);
   HandleClick(80,115,1); Check(ExitRequested,'explicit mouse discard exits');
 
   {Leave a realistic dirty-document prompt for the framebuffer inspection.}
@@ -2018,4 +2215,6 @@ begin
   UndoChecks:=F;
 end;
 {$endif}
+{$ifdef PP16_GRADIENT_TEST}{$I ../tests/GRADTEST.INC}{$endif}
+{$ifdef PP16_IMPORT_TEST}{$I ../tests/IMPTEST.INC}{$endif}
 end.
